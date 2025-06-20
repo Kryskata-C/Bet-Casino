@@ -1,9 +1,16 @@
 import SwiftUI
 import Combine
+
 // Enum to define the betting mode
 enum BettingMode {
     case manual
     case auto
+}
+
+// Enum to manage focus state for TextFields
+enum MinesFocusField {
+    case betAmount
+    case numberOfBets
 }
 
 struct Tile: Identifiable {
@@ -25,7 +32,7 @@ class MinesViewModel: ObservableObject {
     @Published var profit: Double = 0.0
     @Published var currentMultiplier: Double = 1.0
 
-    // MARK: - Auto Bet Propertieså
+    // MARK: - Auto Bet Properties
     @Published var bettingMode: BettingMode = .manual
     @Published var autoBetSelection: Set<Int> = []
     @Published var numberOfBets: String = "10"
@@ -35,6 +42,7 @@ class MinesViewModel: ObservableObject {
     @Published var winStreak: Int = 0
     @Published var streakProfit: Double = 0.0
     @Published var streakIntensity: Double = 0.0
+    
     // MARK: - Private Properties
     private var sessionManager: SessionManager
     private var bombIndexes: Set<Int> = []
@@ -102,50 +110,45 @@ class MinesViewModel: ObservableObject {
     }
 
     private func endGame(won: Bool) {
-            gameState = .gameOver
-            let bet = Double(betAmount) ?? 0.0
+        gameState = .gameOver
+        let bet = Double(betAmount) ?? 0.0
 
-            if won {
-                // Player won! Let's calculate the epic bonus.
-                let streakBonus = calculateStreakBonus()
-                let finalMultiplier = currentMultiplier * streakBonus
-                let finalWinnings = bet * finalMultiplier
-                let roundProfit = finalWinnings - bet
-                
-                // Update UI-facing profit property for this round
-                self.profit = roundProfit
-                
-                winStreak += 1
-                streakProfit += roundProfit
-                
-                sessionManager.money += Int(finalWinnings.rounded())
-                
-            } else { // Player hit a bomb... streak over.
-                self.profit = -bet // They lose the bet amount
-                
-                // RESET THE STREAK!
-                winStreak = 0
-                streakProfit = 0
-                
-                // Reveal all other bombs
-                for i in bombIndexes where !tiles[i].isFlipped {
-                    tiles[i].isFlipped = true
-                    tiles[i].isBomb = true
-                }
-            }
+        if won {
+            let streakBonus = calculateStreakBonus()
+            let finalMultiplier = currentMultiplier * streakBonus
+            let finalWinnings = bet * finalMultiplier
+            let roundProfit = finalWinnings - bet
             
-            // Update visuals and save data
-            updateStreakIntensity() // This updates the fire effect!
-            sessionManager.saveData()
+            self.profit = roundProfit
             
-            // Schedule the game reset
-            resetGameCancellable = Just(()).delay(for: .seconds(2), scheduler: DispatchQueue.main).sink { [weak self] _ in
-                guard let self = self else { return }
-                withAnimation(.easeInOut(duration: 0.4)) {
-                    self.resetGame()
-                }
+            winStreak += 1
+            streakProfit += roundProfit
+            
+            sessionManager.money += Int(finalWinnings.rounded())
+            
+        } else {
+            self.profit = -bet
+            
+            winStreak = 0
+            streakProfit = 0
+            
+            for i in bombIndexes where !tiles[i].isFlipped {
+                tiles[i].isFlipped = true
+                tiles[i].isBomb = true
             }
         }
+        
+        updateStreakIntensity()
+        sessionManager.saveData()
+        
+        resetGameCancellable = Just(()).delay(for: .seconds(2), scheduler: DispatchQueue.main).sink { [weak self] _ in
+            guard let self = self else { return }
+            withAnimation(.easeInOut(duration: 0.4)) {
+                self.resetGame()
+            }
+        }
+    }
+    
     func resetGame() {
         resetGameCancellable?.cancel()
         resetBoard()
@@ -229,7 +232,6 @@ class MinesViewModel: ObservableObject {
     }
     
     private func runAutoBetRound(bet: Int) async {
-        // ** THE FIX: Set the bomb locations for the current round first! **
         self.bombIndexes = generateBombs(count: Int(mineCount))
         let multiplier = calculateAutoMultiplier()
         var hitBomb = false
@@ -240,24 +242,19 @@ class MinesViewModel: ObservableObject {
             }
         }
         
-        // Calculate the profit/loss based on the outcome
         let profitAmount: Double
         if hitBomb {
             profitAmount = -Double(bet)
         } else {
-            // Correctly calculate winnings (total return) and then profit (winnings - bet)
             let winnings = Double(bet) * multiplier
             profitAmount = winnings - Double(bet)
         }
 
-        // Animate the tile reveal and profit update in one single, smooth step
         await MainActor.run {
             withAnimation(.easeInOut(duration: 0.4)) {
-                // Apply the bet and profit/loss to the user's balance
                 self.sessionManager.money -= bet
                 self.sessionManager.money += Int(profitAmount.rounded() + (hitBomb ? 0 : Double(bet)))
                 
-                // Update the UI
                 self.lastRoundProfit = profitAmount
                 for tileIndex in self.autoBetSelection {
                     self.tiles[tileIndex].isFlipped = true
@@ -269,10 +266,8 @@ class MinesViewModel: ObservableObject {
             self.sessionManager.saveData()
         }
         
-        // Pause to show the result
         try? await Task.sleep(nanoseconds: 800_000_000)
         
-        // Animate the board resetting for the next round
         await MainActor.run {
             if self.isAutoBetting {
                 withAnimation(.easeInOut(duration: 0.4)) {
@@ -306,6 +301,7 @@ class MinesViewModel: ObservableObject {
         for i in 0..<Int(k) { calculatedMult *= (n - m - Double(i)) / (n - Double(i)) }
         return (1 / calculatedMult) * 0.98
     }
+    
     private func calculateStreakBonus() -> Double {
         guard winStreak > 0 else { return 1.0 }
         let streakFactor = pow(Double(winStreak), 1.25) * 0.05
@@ -314,30 +310,30 @@ class MinesViewModel: ObservableObject {
         return min(10.0, bonus)
     }
 
-
-       // This function translates your streak profit into a visual fire intensity!
-       private func updateStreakIntensity() {
-           let bet = Double(betAmount) ?? 1.0 // Use 1 to avoid division by zero
-           // Let's say a "purple flame" is when your total streak profit hits 50x your bet
-           let targetProfitForMaxFlame = bet * 50.0
-           guard targetProfitForMaxFlame > 0 else { streakIntensity = 0; return }
-           
-           let intensity = streakProfit / targetProfitForMaxFlame
-           self.streakIntensity = max(0, intensity) // Update the UI
-       }
+    private func updateStreakIntensity() {
+        let bet = Double(betAmount) ?? 1.0
+        let targetProfitForMaxFlame = bet * 50.0
+        guard targetProfitForMaxFlame > 0 else { streakIntensity = 0; return }
+        
+        let intensity = streakProfit / targetProfitForMaxFlame
+        self.streakIntensity = max(0, intensity)
+    }
 }
 
 
 // MARK: - Main View
 struct MinesView: View {
     @StateObject private var viewModel: MinesViewModel
-    @FocusState private var isBetAmountFocused: Bool
+    // **THE FIX**: Use an enum for the focus state to handle multiple fields
+    @FocusState private var focusedField: MinesFocusField?
 
     init(session: SessionManager) {
         _viewModel = StateObject(wrappedValue: MinesViewModel(sessionManager: session))
     }
 
     var body: some View {
+        // **THE FIX**: The .ignoresSafeArea modifier is moved to the parent view (MainCasinoView)
+        // to prevent the bottom nav bar from moving up.
         ZStack {
             LinearGradient(colors: [.black, Color(red: 35/255, green: 0, blue: 50/255).opacity(0.9)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
@@ -347,24 +343,23 @@ struct MinesView: View {
                     if viewModel.bettingMode == .manual {
                         ProfitView(profit: viewModel.profit, multiplier: viewModel.currentMultiplier, winStreak: viewModel.winStreak, streakIntensity: viewModel.streakIntensity)
                     } else if viewModel.isAutoBetting || viewModel.lastRoundProfit != nil {
-                        // Keep showing the status view even after betting stops, until the next action
                         AutoBetStatusView(profit: viewModel.lastRoundProfit ?? 0, currentBet: viewModel.currentBetCount, totalBets: Int(viewModel.numberOfBets) ?? 0)
                     }
                     
                     GridView(viewModel: viewModel)
                     
-                    ControlsView(viewModel: viewModel, isBetAmountFocused: $isBetAmountFocused)
+                    ControlsView(viewModel: viewModel, focusedField: $focusedField)
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 20)
             }
         }
-        .ignoresSafeArea(.keyboard, edges: .bottom)
         .foregroundColor(.white)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("Done") { isBetAmountFocused = false }
+                // **THE FIX**: This button now dismisses any focused field.
+                Button("Done") { focusedField = nil }
             }
         }
         .onDisappear {
@@ -385,18 +380,6 @@ struct GlassView: View {
             )
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 struct ProfitView: View {
     let profit: Double
@@ -429,7 +412,6 @@ struct ProfitView: View {
                             .foregroundColor(.orange)
                     }
                 }
-
             }
         }
         .padding()
@@ -509,7 +491,8 @@ struct TileView: View {
 // MARK: - Control Views
 struct ControlsView: View {
     @ObservedObject var viewModel: MinesViewModel
-    @FocusState.Binding var isBetAmountFocused: Bool
+    // **THE FIX**: Pass the FocusState binding down.
+    @FocusState.Binding var focusedField: MinesFocusField?
     
     var body: some View {
         VStack(spacing: 15) {
@@ -523,9 +506,9 @@ struct ControlsView: View {
             .disabled(viewModel.isAutoBetting)
             
             if viewModel.bettingMode == .manual {
-                ManualControlsView(viewModel: viewModel, isBetAmountFocused: $isBetAmountFocused)
+                ManualControlsView(viewModel: viewModel, focusedField: $focusedField)
             } else {
-                AutoControlsView(viewModel: viewModel, isBetAmountFocused: $isBetAmountFocused)
+                AutoControlsView(viewModel: viewModel, focusedField: $focusedField)
             }
         }
         .padding().background(GlassView())
@@ -534,7 +517,8 @@ struct ControlsView: View {
 
 struct ManualControlsView: View {
     @ObservedObject var viewModel: MinesViewModel
-    @FocusState.Binding var isBetAmountFocused: Bool
+    // **THE FIX**: Pass the FocusState binding down.
+    @FocusState.Binding var focusedField: MinesFocusField?
     
     var body: some View {
         let isPlaying = viewModel.gameState == .playing
@@ -544,8 +528,13 @@ struct ManualControlsView: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Bet Amount").font(.caption).foregroundColor(.gray)
-                    TextField("Enter bet", text: $viewModel.betAmount).keyboardType(.decimalPad).padding(10)
-                        .background(Color.black.opacity(0.2)).cornerRadius(10).focused($isBetAmountFocused)
+                    TextField("Enter bet", text: $viewModel.betAmount)
+                        .keyboardType(.decimalPad)
+                        .padding(10)
+                        .background(Color.black.opacity(0.2))
+                        .cornerRadius(10)
+                        // **THE FIX**: Bind the focus state.
+                        .focused($focusedField, equals: .betAmount)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Mines: \(Int(viewModel.mineCount))").font(.caption).foregroundColor(.gray)
@@ -571,7 +560,8 @@ struct ManualControlsView: View {
 
 struct AutoControlsView: View {
     @ObservedObject var viewModel: MinesViewModel
-    @FocusState.Binding var isBetAmountFocused: Bool
+    // **THE FIX**: Pass the FocusState binding down.
+    @FocusState.Binding var focusedField: MinesFocusField?
 
     var body: some View {
         let isSetup = viewModel.gameState == .autoSetup
@@ -582,10 +572,15 @@ struct AutoControlsView: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Bet Amount").font(.caption).foregroundColor(.gray)
-                    TextField("Enter bet", text: $viewModel.betAmount).keyboardType(.decimalPad).padding(10)
-                        .background(Color.black.opacity(0.2)).cornerRadius(10).focused($isBetAmountFocused)
+                    TextField("Enter bet", text: $viewModel.betAmount)
+                        .keyboardType(.decimalPad)
+                        .padding(10)
+                        .background(Color.black.opacity(0.2))
+                        .cornerRadius(10)
+                        // **THE FIX**: Bind the focus state.
+                        .focused($focusedField, equals: .betAmount)
                 }
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing:0.4) {
                     Text("Mines: \(Int(viewModel.mineCount))").font(.caption).foregroundColor(.gray)
                     Slider(value: $viewModel.mineCount, in: 1...24, step: 1).accentColor(.purple)
                 }
@@ -593,8 +588,13 @@ struct AutoControlsView: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("Number of Bets").font(.caption).foregroundColor(.gray)
-                TextField("Number of bets", text: $viewModel.numberOfBets).keyboardType(.numberPad).padding(10)
-                    .background(Color.black.opacity(0.2)).cornerRadius(10)
+                TextField("Number of bets", text: $viewModel.numberOfBets)
+                    .keyboardType(.numberPad)
+                    .padding(10)
+                    .background(Color.black.opacity(0.2))
+                    .cornerRadius(10)
+                    // **THE FIX**: Bind the focus state.
+                    .focused($focusedField, equals: .numberOfBets)
             }.disabled(isBetting).opacity(isBetting ? 0.6 : 1.0)
             
             if isSetup {
@@ -616,7 +616,7 @@ struct AutoControlsView: View {
         }
     }
 }
+
 #Preview {
     MinesView(session: SessionManager())
 }
-

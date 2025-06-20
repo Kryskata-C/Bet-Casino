@@ -1,3 +1,5 @@
+// In ContentView.swift, please replace the existing MainCasinoView struct with this one.
+
 import UIKit
 import SwiftUI
 
@@ -35,33 +37,42 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Main App Shell
+// MARK: - Main App Shell (Corrected)
 struct MainCasinoView: View {
     @EnvironmentObject var session: SessionManager
 
     var body: some View {
-        VStack(spacing: 0) {
-            TopUserBar(username: $session.username, money: $session.money, gems: $session.gems)
+        ZStack {
+            // Main content area that will be affected by the keyboard
+            VStack(spacing: 0) {
+                TopUserBar(username: $session.username, money: $session.money, gems: $session.gems)
 
-            ZStack {
-                switch session.currentScreen {
-                case .home:
-                    HomeView()
-                        .transition(.opacity.animation(.easeOut))
-                case .mines:
-                    MinesView(session: session)
-                        .transition(.opacity.animation(.easeOut))
+                ZStack {
+                    switch session.currentScreen {
+                    case .home:
+                        HomeView()
+                            .transition(.opacity.animation(.easeOut))
+                    case .mines:
+                        MinesView(session: session)
+                            .transition(.opacity.animation(.easeOut))
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.bottom, 80) // Add padding to the bottom to prevent content from being hidden behind the nav bar
 
-            BottomNavBar(currentScreen: $session.currentScreen)
+            // VStack to hold the BottomNavBar and push it to the bottom
+            VStack {
+                Spacer() // Pushes the nav bar to the very bottom of the ZStack
+                BottomNavBar(currentScreen: $session.currentScreen)
+            }
         }
         .background(
             LinearGradient(colors: [Color.black, Color(red: 35/255, green: 0, blue: 50/255).opacity(0.9)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
         )
         .foregroundColor(.white)
+        .ignoresSafeArea(.keyboard) // This ensures the entire view, including the overlaid nav bar, ignores the keyboard
     }
 }
 
