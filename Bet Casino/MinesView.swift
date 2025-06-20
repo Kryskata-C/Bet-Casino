@@ -102,9 +102,7 @@ class MinesViewModel: ObservableObject {
 }
 
 
-// MARK: - Main View (Simplified)
-// MinesView is now ONLY responsible for the game content.
-// It no longer contains a TopUserBar or BottomNavBar.
+// MARK: - Main View
 struct MinesView: View {
     @StateObject private var viewModel: MinesViewModel
     @FocusState private var isBetAmountFocused: Bool
@@ -115,9 +113,10 @@ struct MinesView: View {
 
     var body: some View {
         ZStack {
-            // The game view itself doesn't need its own background,
-            // as it sits inside MainCasinoView which already has one.
-            
+            // THE FIX: The background has been restored to this view.
+            LinearGradient(colors: [.black, Color(red: 35/255, green: 0, blue: 50/255).opacity(0.9)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+
             ScrollView {
                 VStack(spacing: 15) {
                     ProfitView(profit: viewModel.profit, multiplier: viewModel.currentMultiplier, gameState: viewModel.gameState)
@@ -128,6 +127,7 @@ struct MinesView: View {
                 .padding(.vertical, 20)
             }
         }
+        .foregroundColor(.white)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
@@ -138,7 +138,7 @@ struct MinesView: View {
 }
 
 
-// ... (Subviews like GlassView, ProfitView, etc. are unchanged)
+// MARK: - Subviews
 struct GlassView: View {
     var body: some View {
         RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.black.opacity(0.25)).overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.white.opacity(0.3), lineWidth: 1))
