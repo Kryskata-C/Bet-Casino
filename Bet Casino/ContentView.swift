@@ -125,8 +125,16 @@ struct GameCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            game.color
-                .brightness(-0.2)
+            if game.name == "Mines" {
+                Image("mines_card_bg")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(height: 150)
+                    .clipped()
+
+            } else {
+                game.color.frame(height: 150)
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(game.name)
@@ -143,6 +151,8 @@ struct GameCard: View {
         .padding(.horizontal)
     }
 }
+
+
 
 struct SplashScreen: View {
     @State private var scale: CGFloat = 0.8; @State private var opacity: Double = 0.0; @State private var rotation: Double = 0.0
