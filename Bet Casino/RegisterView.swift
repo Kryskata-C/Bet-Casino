@@ -94,7 +94,7 @@ struct RegisterView: View {
             "username": username,
             "email": email,
             "password": password,
-            "money": 25000, 
+            "money": 250000,
             "gems": 0
         ]
         UserDefaults.standard.set(userData, forKey: email)

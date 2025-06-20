@@ -26,13 +26,17 @@ struct LoginView: View {
                             .textContentType(.emailAddress)
                             .keyboardType(.emailAddress)
                             .padding()
-                            .background(.ultraThinMaterial)
+                            // LAG FIX: Replaced .ultraThinMaterial with a solid color
+                            .background(Color.black.opacity(0.2))
                             .cornerRadius(12)
+                            .foregroundColor(.white)
 
                         SecureField("Password", text: $password)
                             .padding()
-                            .background(.ultraThinMaterial)
+                            // LAG FIX: Replaced .ultraThinMaterial with a solid color
+                            .background(Color.black.opacity(0.2))
                             .cornerRadius(12)
+                            .foregroundColor(.white)
                     }
 
                     if !error.isEmpty {
@@ -63,6 +67,7 @@ struct LoginView: View {
                         onCompletion: { result in
                             switch result {
                             case .success(let auth):
+                                // Use the new, more robust Apple login logic
                                 handleAppleLogin(auth: auth)
                             case .failure(let err):
                                 error = "Apple login failed: \(err.localizedDescription)"
@@ -93,20 +98,44 @@ struct LoginView: View {
         }
     }
 
+    // New, more robust Apple Login and Registration function
     func handleAppleLogin(auth: ASAuthorization) {
-        guard let credentials = auth.credential as? ASAuthorizationAppleIDCredential else { return }
-
-        let userEmail = credentials.email ?? "user\(UUID().uuidString.prefix(6))@apple.com"
-        let username = credentials.fullName?.givenName ?? "Guest\(Int.random(in: 100...999))"
-
-        let userData: [String: Any] = [
-            "username": username,
-            "email": userEmail,
-            "password": "appleid",
-            "money": 50000,
-            "gems": 50
-        ]
-        UserDefaults.standard.set(userData, forKey: userEmail)
-        session.isLoggedIn = true
+        guard let appleIDCredential = auth.credential as? ASAuthorizationAppleIDCredential else {
+            error = "Unable to retrieve Apple ID credential."
+            return
+        }
+        
+        // The user's unique and stable identifier
+        let userIdentifier = appleIDCredential.user
+        
+        // Check if we have an existing account for this user identifier
+        if let userData = UserDefaults.standard.dictionary(forKey: userIdentifier) {
+            // User exists, log them in
+            print("Existing Apple user logged in: \(userIdentifier)")
+            session.isLoggedIn = true
+        } else {
+            // User does not exist, this is a first-time registration
+            print("New Apple user registering: \(userIdentifier)")
+            
+            // Email and name are only provided on the *first* authorization
+            let email = appleIDCredential.email ?? "private-relay-\(UUID().uuidString.prefix(5))@apple.com"
+            let firstName = appleIDCredential.fullName?.givenName ?? "Player"
+            
+            let newUser: [String: Any] = [
+                "username": firstName,
+                "email": email,
+                "password": "N/A (Apple Sign-In)", // Password is not needed
+                "money": 50000,
+                "gems": 50
+            ]
+            
+            // Save the new user's data using their stable userIdentifier as the key
+            UserDefaults.standard.set(newUser, forKey: userIdentifier)
+            
+            // Also save the data under the email key for consistency with the regular login flow
+            UserDefaults.standard.set(newUser, forKey: email)
+            
+            session.isLoggedIn = true
+        }
     }
 }
