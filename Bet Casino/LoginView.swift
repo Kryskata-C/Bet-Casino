@@ -92,7 +92,8 @@ struct LoginView: View {
         if let savedData = UserDefaults.standard.dictionary(forKey: email) as? [String: Any],
            let savedPassword = savedData["password"] as? String,
            savedPassword == password {
-            session.isLoggedIn = true
+            // Load the user's data into the session
+            session.loadUser(identifier: email)
         } else {
             error = "Invalid credentials"
         }
@@ -109,10 +110,10 @@ struct LoginView: View {
         let userIdentifier = appleIDCredential.user
         
         // Check if we have an existing account for this user identifier
-        if let userData = UserDefaults.standard.dictionary(forKey: userIdentifier) {
-            // User exists, log them in
+        if let _ = UserDefaults.standard.dictionary(forKey: userIdentifier) {
+            // User exists, log them in by loading their data
             print("Existing Apple user logged in: \(userIdentifier)")
-            session.isLoggedIn = true
+            session.loadUser(identifier: userIdentifier)
         } else {
             // User does not exist, this is a first-time registration
             print("New Apple user registering: \(userIdentifier)")
@@ -135,7 +136,8 @@ struct LoginView: View {
             // Also save the data under the email key for consistency with the regular login flow
             UserDefaults.standard.set(newUser, forKey: email)
             
-            session.isLoggedIn = true
+            // Load the new user's data into the session
+            session.loadUser(identifier: userIdentifier)
         }
     }
 }

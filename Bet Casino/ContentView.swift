@@ -39,16 +39,11 @@ struct ContentView: View {
 struct MainCasinoView: View {
     @EnvironmentObject var session: SessionManager
 
-    // The local @State variables for user data have been correctly removed.
-    // The view now relies entirely on the SessionManager from the environment.
-
     var body: some View {
         VStack(spacing: 0) {
-            // The TopUserBar is now correctly bound to the session's properties.
             TopUserBar(username: $session.username, money: $session.money, gems: $session.gems)
 
             ZStack {
-                // The main content switches based on the session's currentScreen.
                 switch session.currentScreen {
                 case .home:
                     HomeView()
@@ -95,7 +90,6 @@ struct GameSection: View {
         VStack(alignment: .leading, spacing: 15) {
             Text(title).font(.title2).bold().padding(.horizontal)
             
-            // This now uses the full-width banner cards.
             VStack(spacing: 15) {
                 ForEach(games) { game in
                     Button(action: {
@@ -103,7 +97,6 @@ struct GameSection: View {
                             if game.name == "Mines" {
                                 session.currentScreen = .mines
                             }
-                            // Add logic for other games here
                         }
                     }) {
                         GameCard(game: game)
@@ -122,7 +115,7 @@ struct GameCard: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             game.color
-                .brightness(-0.2) // Darken the color for better text contrast
+                .brightness(-0.2)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(game.name)
@@ -139,8 +132,6 @@ struct GameCard: View {
         .padding(.horizontal)
     }
 }
-
-// ... Other subviews (SplashScreen, TopUserBar, etc.) are correct and included for completeness.
 
 struct SplashScreen: View {
     @State private var scale: CGFloat = 0.8; @State private var opacity: Double = 0.0; @State private var rotation: Double = 0.0
@@ -179,13 +170,22 @@ struct TopUserBar: View {
     }
 }
 
+// **THE FIX IS HERE**
 struct CurrencyDisplay: View {
     let value: Int; let icon: String; let color: Color
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: icon).foregroundColor(color)
-            Text(formatNumber(value)).fontWeight(.semibold).lineLimit(1).minimumScaleFactor(0.7)
-        }.padding(.vertical, 8).padding(.horizontal, 12).background(Color.black.opacity(0.3)).cornerRadius(20)
+            Text(formatNumber(value))
+                .fontWeight(.semibold)
+                // This tells the text to take exactly the space it needs horizontally
+                // preventing it from being truncated.
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(Color.black.opacity(0.3))
+        .cornerRadius(20)
     }
 }
 
@@ -232,11 +232,10 @@ struct NavItem: View {
     }
 }
 
-// Updated Game struct to include a subtitle
 struct Game: Identifiable {
     let id = UUID()
     let name: String
-    let subtitle: String // New property
+    let subtitle: String
     let color: Color
 }
 
@@ -247,10 +246,21 @@ let originals: [Game] = [ Game(name: "Blackjack", subtitle: "Classic card game",
 func vibrate() { let impact = UIImpactFeedbackGenerator(style: .light); impact.impactOccurred() }
 
 func formatNumber(_ num: Int) -> String {
-    let number = Double(num); let formatter = NumberFormatter(); formatter.numberStyle = .decimal; formatter.maximumFractionDigits = 1
-    if number >= 1_000_000_000 { return (formatter.string(from: NSNumber(value: number / 1_000_000_000)) ?? "") + "B" }
-    if number >= 1_000_000 { return (formatter.string(from: NSNumber(value: number / 1_000_000)) ?? "") + "M" }
-    if number >= 1_000 { return (formatter.string(from: NSNumber(value: number / 1_000)) ?? "") + "K" }
+    let number = Double(num)
+    let billion = 1_000_000_000.0
+    let million = 1_000_000.0
+    let thousand = 1_000.0
+
+    if number >= billion {
+        return String(format: "%.1fB", number / billion).replacingOccurrences(of: ".0", with: "")
+    }
+    if number >= million {
+        return String(format: "%.1fM", number / million).replacingOccurrences(of: ".0", with: "")
+    }
+    if number >= thousand {
+        return String(format: "%.1fK", number / thousand).replacingOccurrences(of: ".0", with: "")
+    }
+    
     return "\(num)"
 }
 

@@ -18,6 +18,9 @@ class MinesViewModel: ObservableObject {
     @Published var gameState: GameState = .idle // .idle, .playing, .gameOver
     @Published var profit: Double = 0.0 // Profit can still be fractional
     @Published var currentMultiplier: Double = 1.0
+    @Published var winStreak: Int = 0
+    @Published var streakProfit: Double = 0.0
+    @Published var streakIntensity: Double = 0.0 // Drives the fire effect!
     @Published var userMoney: Int = 0 // User's current money
 
     private var bombIndexes: Set<Int> = []
@@ -174,4 +177,20 @@ class MinesViewModel: ObservableObject {
         let houseEdge: Double = 0.98
         return calculatedMult * houseEdge
     }
+    private func calculateStreakBonus() -> Double {
+            guard winStreak > 0 else { return 1.0 }
+            let streakFactor = log(Double(winStreak) + 1) * 0.25
+            let riskFactor = 1.0 + (mineCount / Double(totalTiles))
+            let bonus = 1.0 + (streakFactor * riskFactor)
+            return min(5.0, bonus)
+        }
+
+        private func updateStreakIntensity() {
+            let bet = Double(betAmount) ?? 1.0
+            let targetProfitForMaxFlame = bet * 50.0
+            guard targetProfitForMaxFlame > 0 else { streakIntensity = 0; return }
+            
+            let intensity = streakProfit / targetProfitForMaxFlame
+            self.streakIntensity = max(0, intensity)
+        }
 }

@@ -26,25 +26,30 @@ struct RegisterView: View {
                     VStack(spacing: 12) {
                         TextField("Username", text: $username)
                             .padding()
-                            .background(.ultraThinMaterial)
+                            .background(Color.black.opacity(0.2)) // Changed for consistency
                             .cornerRadius(12)
+                            .foregroundColor(.white)
+
 
                         TextField("Email", text: $email)
                             .textContentType(.emailAddress)
                             .keyboardType(.emailAddress)
                             .padding()
-                            .background(.ultraThinMaterial)
+                            .background(Color.black.opacity(0.2)) // Changed for consistency
                             .cornerRadius(12)
+                            .foregroundColor(.white)
 
                         SecureField("Password", text: $password)
                             .padding()
-                            .background(.ultraThinMaterial)
+                            .background(Color.black.opacity(0.2)) // Changed for consistency
                             .cornerRadius(12)
+                            .foregroundColor(.white)
 
                         SecureField("Confirm Password", text: $confirmPassword)
                             .padding()
-                            .background(.ultraThinMaterial)
+                            .background(Color.black.opacity(0.2)) // Changed for consistency
                             .cornerRadius(12)
+                            .foregroundColor(.white)
                     }
 
                     if !error.isEmpty {
@@ -94,10 +99,15 @@ struct RegisterView: View {
             "username": username,
             "email": email,
             "password": password,
-            "money": 250000,
-            "gems": 0
+            "money": 25000, // Starting money
+            "gems": 0       // Starting gems
         ]
+        // Save the new user's data to storage
         UserDefaults.standard.set(userData, forKey: email)
-        session.isLoggedIn = true
+        
+        // **THE FIX**: Immediately load the new user's data into the session.
+        // This will update the username, money, and gems, and set isLoggedIn = true.
+        session.loadUser(identifier: email)
     }
 }
+
