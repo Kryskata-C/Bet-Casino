@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import AVFoundation
 
 // MARK: - Enums & Models
 enum BettingMode {
@@ -16,7 +17,42 @@ struct Tile: Identifiable {
     var isBomb: Bool = false
     var hasShine: Bool = false
     var wasLosingBomb: Bool = false
+    var particles: [Particle] = []
 }
+
+struct Particle: Identifiable {
+    let id = UUID()
+    var position: CGPoint
+    var scale: CGFloat = 1.0
+    var opacity: Double = 1.0
+}
+
+// MARK: - Sound Manager
+class SoundManager {
+    static let shared = SoundManager()
+    private var audioPlayer: AVAudioPlayer?
+
+    enum SoundOption: String {
+        case flip = "tile_flip.wav"
+        case bomb = "bomb_hit.wav"
+        case win = "win_sound.wav"
+    }
+
+    func playSound(sound: SoundOption) {
+        guard let url = Bundle.main.url(forResource: sound.rawValue, withExtension: nil) else {
+            print("Could not find sound file: \(sound.rawValue)")
+            return
+        }
+
+        do {
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.play()
+        } catch {
+            print("Error playing sound: \(error.localizedDescription)")
+        }
+    }
+}
+
 
 // MARK: - ViewModel
 class MinesViewModel: ObservableObject {
@@ -30,6 +66,7 @@ class MinesViewModel: ObservableObject {
     @Published var betAmount: String = ""
     @Published var profit: Double = 0.0
     @Published var currentMultiplier: Double = 1.0
+    @Published var isBetAmountInvalid = false
 
     // Auto Bet Properties
     @Published var isAutoBetting: Bool = false
@@ -37,6 +74,11 @@ class MinesViewModel: ObservableObject {
     @Published var autoBetSelection: Set<Int> = []
     @Published var currentBetCount: Int = 0
     @Published var autoRunProfit: Double = 0.0
+    @Published var showAutoBetSummary = false
+    
+    // Auto-Bet Summary Stats
+    @Published var autoBetWins = 0
+    @Published var autoBetLosses = 0
 
     // Streak Properties
     @Published var winStreak: Int = 0
@@ -65,11 +107,18 @@ class MinesViewModel: ObservableObject {
 
     // MARK: - Game Logic
     func startGame() {
-        guard let bet = Int(betAmount), bet > 0, bet <= sessionManager.money else { return }
+        guard let bet = Int(betAmount), bet > 0, bet <= sessionManager.money else {
+            isBetAmountInvalid = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.isBetAmountInvalid = false
+            }
+            return
+        }
         resetGameCancellable?.cancel()
         
         sessionManager.money -= bet
         sessionManager.betsPlaced += 1
+        sessionManager.minesBets += 1
         
         resetBoard()
         gameState = .playing
@@ -84,15 +133,19 @@ class MinesViewModel: ObservableObject {
             
             tiles[index].isFlipped = true
             if bombIndexes.contains(index) {
+                SoundManager.shared.playSound(sound: .bomb)
                 tiles[index].isBomb = true
                 tiles[index].wasLosingBomb = true
                 endGame(won: false)
             } else {
+                SoundManager.shared.playSound(sound: .flip)
                 selectedTiles.insert(index)
                 tiles[index].hasShine = true
-                currentMultiplier = calculateManualMultiplier()
+                triggerParticleEffect(at: index)
+                let baseMult = calculateManualMultiplier()
+                let streakBonus = calculateStreakBonus(tilesUncovered: selectedTiles.count)
+                currentMultiplier = baseMult * streakBonus
                 profit = (Double(betAmount) ?? 0.0) * (currentMultiplier - 1.0)
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 if Double(selectedTiles.count) == totalTiles - Double(bombIndexes.count) {
                     endGame(won: true)
                 }
@@ -106,6 +159,7 @@ class MinesViewModel: ObservableObject {
     
     func cashout() {
         guard gameState == .playing, !selectedTiles.isEmpty else { return }
+        SoundManager.shared.playSound(sound: .win)
         endGame(won: true)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
@@ -128,7 +182,13 @@ class MinesViewModel: ObservableObject {
             
             let winningsInt = Int(finalWinnings.rounded())
             sessionManager.money += winningsInt
-            sessionManager.totalMoneyWon += winningsInt
+            
+            let profitInt = Int(roundProfit.rounded())
+            sessionManager.totalMoneyWon += profitInt
+            if profitInt > sessionManager.biggestWin {
+                sessionManager.biggestWin = profitInt
+            }
+            
         } else {
             self.profit = -bet
             resetStreak()
@@ -173,12 +233,20 @@ class MinesViewModel: ObservableObject {
 
     func startAutoBet() {
         guard let totalBets = Int(numberOfBets), totalBets > 0,
-              let bet = Int(betAmount), bet > 0 else { return }
+              let bet = Int(betAmount), bet > 0, bet <= sessionManager.money else {
+            isBetAmountInvalid = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.isBetAmountInvalid = false
+            }
+            return
+        }
 
         isAutoBetting = true
         gameState = .autoPlaying
         currentBetCount = 0
         autoRunProfit = 0
+        autoBetWins = 0
+        autoBetLosses = 0
         resetStreak()
 
         autoBetTask = Task {
@@ -194,12 +262,14 @@ class MinesViewModel: ObservableObject {
                 
                 await runAutoBetRound(bet: bet)
                 if Task.isCancelled { break }
-                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                // Add a delay between auto-bet rounds to allow animations to be seen
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
             }
             
             await MainActor.run {
                 self.isAutoBetting = false
                 self.gameState = .autoSetup
+                self.showAutoBetSummary = true
             }
         }
     }
@@ -218,6 +288,7 @@ class MinesViewModel: ObservableObject {
             self.resetBoard()
             self.sessionManager.money -= bet
             self.sessionManager.betsPlaced += 1
+            sessionManager.minesBets += 1
             self.bombIndexes = generateBombs(count: Int(mineCount))
         }
 
@@ -227,8 +298,10 @@ class MinesViewModel: ObservableObject {
 
         if hitBomb {
             lastRoundProfit = -Double(bet)
+            autoBetLosses += 1
             await MainActor.run { resetStreak() }
         } else {
+            autoBetWins += 1
             let streakBonus = calculateStreakBonus(tilesUncovered: autoBetSelection.count)
             let finalWinnings = (Double(bet) * multiplier) * streakBonus
             lastRoundProfit = finalWinnings - Double(bet)
@@ -236,22 +309,30 @@ class MinesViewModel: ObservableObject {
             await MainActor.run {
                 self.winStreak += 1
                 self.streakBonusMultiplier = streakBonus
+                
                 let winningsInt = Int(finalWinnings.rounded())
                 self.sessionManager.money += winningsInt
-                self.sessionManager.totalMoneyWon += winningsInt
+
+                let profitInt = Int(lastRoundProfit.rounded())
+                self.sessionManager.totalMoneyWon += profitInt
+                if profitInt > self.sessionManager.biggestWin {
+                    self.sessionManager.biggestWin = profitInt
+                }
             }
         }
 
+        // Trigger the tile flip animation for the auto-bet selection
+        for tileIndex in self.autoBetSelection {
+             await MainActor.run {
+                 self.tiles[tileIndex].isFlipped = true
+                 if self.bombIndexes.contains(tileIndex) {
+                     self.tiles[tileIndex].isBomb = true
+                 }
+             }
+        }
+        
         await MainActor.run {
-            withAnimation(.easeInOut) {
-                self.autoRunProfit += lastRoundProfit
-                for tileIndex in self.autoBetSelection {
-                    self.tiles[tileIndex].isFlipped = true
-                    if self.bombIndexes.contains(tileIndex) {
-                        self.tiles[tileIndex].isBomb = true
-                    }
-                }
-            }
+            self.autoRunProfit += lastRoundProfit
             self.sessionManager.saveData()
         }
     }
@@ -276,6 +357,25 @@ class MinesViewModel: ObservableObject {
         return bombs
     }
     
+    private func triggerParticleEffect(at index: Int) {
+        let particleCount = 10
+        for _ in 0..<particleCount {
+            let particle = Particle(position: .zero)
+            tiles[index].particles.append(particle)
+        }
+
+        for i in 0..<tiles[index].particles.count {
+            let randomX = CGFloat.random(in: -25...25)
+            let randomY = CGFloat.random(in: -25...25)
+            
+            withAnimation(.easeOut(duration: 0.8)) {
+                tiles[index].particles[i].position = CGPoint(x: randomX, y: randomY)
+                tiles[index].particles[i].opacity = 0
+                tiles[index].particles[i].scale = 0.5
+            }
+        }
+    }
+    
     func calculateManualMultiplier() -> Double {
         guard !bombIndexes.isEmpty else { return 1.0 }
         let n = totalTiles, m = Double(bombIndexes.count), k = Double(selectedTiles.count)
@@ -295,7 +395,7 @@ class MinesViewModel: ObservableObject {
     }
     
     func calculateStreakBonus(tilesUncovered: Int) -> Double {
-        let level = 1.0 
+        let level = Double(sessionManager.level)
         guard winStreak > 0 else { return 1.0 }
         let uncoveredRatio = Double(tilesUncovered) / (totalTiles - mineCount)
         let mineDensity = mineCount / totalTiles
@@ -321,28 +421,35 @@ struct MinesView: View {
     }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             LinearGradient(colors: [.black, Color(red: 35/255, green: 0, blue: 50/255).opacity(0.9)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 15) {
-                    StatusHeaderView(viewModel: viewModel)
+            VStack(spacing: 15) {
+                StatusHeaderView(viewModel: viewModel)
+                
+                ZStack {
+                    GridView(viewModel: viewModel)
                     
-                    ZStack {
-                        GridView(viewModel: viewModel)
-                        
-                        if showStreakBonus {
-                            StreakBonusView(bonus: viewModel.streakBonusMultiplier)
-                                .id(streakAnimationId)
-                        }
+                    if showStreakBonus {
+                        StreakBonusView(bonus: viewModel.streakBonusMultiplier)
+                            .id(streakAnimationId)
                     }
-                    
+                }
+                
+                // Show controls only when not in an active game
+                if viewModel.gameState != .playing {
                     ControlsView(viewModel: viewModel, focusedField: $focusedField)
                 }
-                .padding()
+                
+                Spacer() // Pushes content up
             }
-            // The scaleEffect is now removed from here so it's not applied twice.
+            .padding()
+
+            // Show floating cashout button only during an active game
+            if viewModel.gameState == .playing {
+                FloatingCashoutButton(viewModel: viewModel)
+            }
         }
         .foregroundColor(.white)
         .toolbar {
@@ -351,9 +458,12 @@ struct MinesView: View {
                 Button("Done") { focusedField = nil }
             }
         }
+        .sheet(isPresented: $viewModel.showAutoBetSummary) {
+            AutoBetSummaryView(viewModel: viewModel)
+        }
         .onDisappear(perform: viewModel.stopAutoBet)
-        .onChange(of: viewModel.winStreak) { oldValue, newValue in
-            if newValue > oldValue && newValue > 0 {
+        .onChange(of: viewModel.winStreak) {
+            if viewModel.winStreak > 0 {
                 streakAnimationId = UUID()
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
                     showStreakBonus = true
@@ -374,10 +484,25 @@ struct StatusHeaderView: View {
     @ObservedObject var viewModel: MinesViewModel
     
     var body: some View {
-        if viewModel.bettingMode == .auto {
-            AutoStatusView(profit: viewModel.autoRunProfit, streak: viewModel.winStreak)
-        } else {
-            ManualStatusView(profit: viewModel.profit, multiplier: viewModel.currentMultiplier, streak: viewModel.winStreak)
+        VStack(spacing: 8) {
+            if viewModel.bettingMode == .auto && viewModel.isAutoBetting {
+                AutoStatusView(profit: viewModel.autoRunProfit, streak: viewModel.winStreak)
+            } else {
+                ManualStatusView(profit: viewModel.profit, multiplier: viewModel.currentMultiplier, streak: viewModel.winStreak)
+            }
+            
+            if viewModel.gameState == .playing || viewModel.gameState == .gameOver {
+                let safeTiles = Int(viewModel.totalTiles - viewModel.mineCount)
+                ProgressView(value: Double(viewModel.selectedTiles.count), total: Double(safeTiles)) {
+                    HStack {
+                        Text("Safe Tiles Found")
+                        Spacer()
+                        Text("\(viewModel.selectedTiles.count) / \(safeTiles)")
+                    }
+                    .font(.caption)
+                }
+                .tint(.purple)
+            }
         }
     }
 }
@@ -436,7 +561,7 @@ struct InfoPill: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(GlassView())
+        .background(SolidPanelView())
     }
 }
 
@@ -476,26 +601,62 @@ struct TileView: View {
     @Binding var tile: Tile
     var isAutoSelected: Bool
     var onTap: () -> Void
+    @State private var scale: CGFloat = 1.0
     
     var body: some View {
         let isSetupMode = !tile.isFlipped && isAutoSelected
         
-        ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(tile.isFlipped ? (tile.isBomb ? Color.red.opacity(0.6) : Color.purple.opacity(0.4)) : Color.white.opacity(0.05))
-                .overlay(isSetupMode ? RoundedRectangle(cornerRadius: 10).stroke(Color.purple, lineWidth: 4) : nil)
-                .overlay(tile.wasLosingBomb ? RoundedRectangle(cornerRadius: 10).stroke(Color.yellow, lineWidth: 4) : nil)
-                .aspectRatio(1, contentMode: .fit)
-
-            if tile.isFlipped {
-                Text(tile.isBomb ? "💣" : "💎")
-                    .font(.title2)
-                    .shadow(color: tile.hasShine ? .cyan : (tile.isBomb ? .red : .clear), radius: tile.hasShine ? 8 : 5)
+        FlipView(isFlipped: $tile.isFlipped) {
+            // Front of the tile
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.white.opacity(0.05))
+                    .overlay(isSetupMode ? RoundedRectangle(cornerRadius: 10).stroke(Color.purple, lineWidth: 4) : nil)
+            }
+        } back: {
+            // Back of the tile
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(tile.isBomb ? Color.red.opacity(0.6) : Color.purple.opacity(0.4))
+                    .overlay(tile.wasLosingBomb ? RoundedRectangle(cornerRadius: 10).stroke(Color.yellow, lineWidth: 4) : nil)
+                    
+                if tile.isBomb {
+                    Image(systemName: "xmark.octagon.fill")
+                        .font(.title2)
+                        .foregroundColor(.white)
+                } else {
+                    Image(systemName: "diamond.fill")
+                        .font(.title2)
+                        .foregroundStyle(LinearGradient(colors: [.cyan, .white], startPoint: .top, endPoint: .bottom))
+                        .shadow(color: .cyan, radius: tile.hasShine ? 8 : 0)
+                }
+                
+                // Particle effect
+                ZStack {
+                    ForEach(tile.particles) { particle in
+                        Circle()
+                            .fill(Color.yellow)
+                            .frame(width: 5, height: 5)
+                            .scaleEffect(particle.scale)
+                            .offset(x: particle.position.x, y: particle.position.y)
+                            .opacity(particle.opacity)
+                    }
+                }
             }
         }
-        .rotation3DEffect(.degrees(tile.isFlipped ? 180 : 0), axis: (x: 0, y: 1, z: 0))
+        .aspectRatio(1, contentMode: .fit)
+        .scaleEffect(scale)
         .onTapGesture {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) { onTap() }
+            onTap()
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                scale = 1.1
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                withAnimation(.spring()) {
+                    scale = 1.0
+                }
+            }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
     }
 }
@@ -513,7 +674,7 @@ struct ControlsView: View {
             .pickerStyle(SegmentedPickerStyle())
             .background(Color.black.opacity(0.3)).cornerRadius(8)
             .onChange(of: viewModel.bettingMode) { viewModel.switchBettingMode(to: $0) }
-            .disabled(viewModel.isAutoBetting)
+            .disabled(viewModel.isAutoBetting || viewModel.gameState == .playing)
             
             if viewModel.bettingMode == .manual {
                 ManualControlsView(viewModel: viewModel, focusedField: $focusedField)
@@ -521,54 +682,57 @@ struct ControlsView: View {
                 AutoControlsView(viewModel: viewModel, focusedField: $focusedField)
             }
         }
-        .padding().background(GlassView())
+        .padding()
+        .background(SolidPanelView())
     }
 }
 
 struct ManualControlsView: View {
     @ObservedObject var viewModel: MinesViewModel
     @FocusState.Binding var focusedField: MinesFocusField?
-    
+
     var body: some View {
-        let isPlaying = viewModel.gameState == .playing
-        let isBetValid = (Int(viewModel.betAmount) ?? 0) > 0
-
-        let cashoutValue: Double = {
-            let bet = Double(viewModel.betAmount) ?? 0
-            let streakBonus = viewModel.calculateStreakBonus(tilesUncovered: viewModel.selectedTiles.count)
-            return bet * viewModel.currentMultiplier * streakBonus
-        }()
-
-        VStack(spacing: 15) {
+        VStack(spacing: 16) {
             HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Bet Amount").font(.caption).foregroundColor(.gray)
-                    TextField("Enter bet", text: $viewModel.betAmount)
-                        .keyboardType(.decimalPad).padding(10)
-                        .background(Color.black.opacity(0.2)).cornerRadius(10)
+                VStack(spacing: 6) {
+                    Text("Bet")
+                        .font(.caption).foregroundColor(.gray)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    TextField("1000", text: $viewModel.betAmount)
+                        .keyboardType(.numberPad)
+                        .padding(12)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.2)))
                         .focused($focusedField, equals: .betAmount)
+                        .modifier(ShakeEffect(animatableData: CGFloat(viewModel.isBetAmountInvalid ? 1 : 0)))
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Mines: \(Int(viewModel.mineCount))").font(.caption).foregroundColor(.gray)
-                    Slider(value: $viewModel.mineCount, in: 1...24, step: 1).accentColor(.purple)
+
+                VStack(spacing: 6) {
+                    Text("Mines: \(Int(viewModel.mineCount))")
+                        .font(.caption).foregroundColor(.gray)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Slider(value: $viewModel.mineCount, in: 1...24, step: 1)
+                        .accentColor(.purple)
                 }
             }
-            .disabled(isPlaying).opacity(isPlaying ? 0.6 : 1.0)
-            
-            Button(action: {
-                if isPlaying { viewModel.cashout() } else { viewModel.startGame() }
-            }) {
-                Text(isPlaying ? "Cashout (\(String(format: "%.2f", cashoutValue)))" : "Place Bet")
-                    .font(.headline).fontWeight(.bold).frame(maxWidth: .infinity).padding()
-                    .background(isPlaying ? Color.green : Color.purple)
-                    .foregroundColor(isPlaying ? .black : .white).cornerRadius(15)
-                    .shadow(color: (isPlaying ? Color.green : Color.purple).opacity(0.5), radius: 10, y: 5)
+
+            Button(action: viewModel.startGame) {
+                Text("Place Bet")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.purple)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+                    .shadow(color: .purple.opacity(0.5), radius: 8, y: 4)
             }
-            .disabled((!isPlaying && !isBetValid) || (isPlaying && viewModel.selectedTiles.isEmpty))
-            .opacity((!isPlaying && !isBetValid) || (isPlaying && viewModel.selectedTiles.isEmpty) ? 0.6 : 1.0)
+            .disabled(viewModel.gameState == .playing)
+            .opacity(viewModel.gameState == .playing ? 0.6 : 1.0)
         }
+        .padding()
+        .background(Color.black.opacity(0.15)).cornerRadius(20)
     }
 }
+
 
 struct AutoControlsView: View {
     @ObservedObject var viewModel: MinesViewModel
@@ -584,9 +748,10 @@ struct AutoControlsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Bet Amount").font(.caption).foregroundColor(.gray)
                     TextField("Enter bet", text: $viewModel.betAmount)
-                        .keyboardType(.decimalPad).padding(10)
+                        .keyboardType(.numberPad).padding(10)
                         .background(Color.black.opacity(0.2)).cornerRadius(10)
                         .focused($focusedField, equals: .betAmount)
+                        .modifier(ShakeEffect(animatableData: CGFloat(viewModel.isBetAmountInvalid ? 1 : 0)))
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Mines: \(Int(viewModel.mineCount))").font(.caption).foregroundColor(.gray)
@@ -621,16 +786,145 @@ struct AutoControlsView: View {
     }
 }
 
-struct GlassView: View {
+// Replaced GlassView with a solid, non-transparent panel
+struct SolidPanelView: View {
     var body: some View {
         RoundedRectangle(cornerRadius: 15, style: .continuous)
-            .fill(.black.opacity(0.25))
+            .fill(Color(white: 0.1, opacity: 0.9))
             .overlay(
                 RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .stroke(.white.opacity(0.3), lineWidth: 1)
+                    .stroke(.white.opacity(0.1), lineWidth: 1)
             )
     }
 }
+
+struct FloatingCashoutButton: View {
+    @ObservedObject var viewModel: MinesViewModel
+    @State private var isPulsing = false
+    
+    var body: some View {
+        VStack {
+            Spacer()
+            Button(action: viewModel.cashout) {
+                VStack {
+                    let cashoutValue = (Double(viewModel.betAmount) ?? 0.0) * viewModel.currentMultiplier * viewModel.streakBonusMultiplier
+                    Text("Cashout")
+                        .font(.headline).bold()
+                    Text(String(format: "%.2f", cashoutValue))
+                        .font(.caption)
+                }
+                .padding()
+                .frame(minWidth: 150)
+                .background(Color.green)
+                .foregroundColor(.black)
+                .cornerRadius(20)
+                .shadow(color: .green.opacity(0.7), radius: isPulsing ? 15 : 10)
+                .scaleEffect(isPulsing ? 1.1 : 1.0)
+            }
+            .disabled(viewModel.selectedTiles.isEmpty)
+            .opacity(viewModel.selectedTiles.isEmpty ? 0.6 : 1.0)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                    isPulsing.toggle()
+                }
+            }
+        }
+        .padding(.bottom, 20)
+    }
+}
+
+// Custom Flip Animation View
+struct FlipView<Front: View, Back: View>: View {
+    @Binding var isFlipped: Bool
+    let front: Front
+    let back: Back
+    
+    init(isFlipped: Binding<Bool>, @ViewBuilder front: () -> Front, @ViewBuilder back: () -> Back) {
+        self._isFlipped = isFlipped
+        self.front = front()
+        self.back = back()
+    }
+    
+    var body: some View {
+        ZStack {
+            front
+                .rotation3DEffect(.degrees(isFlipped ? 180 : 0), axis: (x: 0, y: 1, z: 0))
+                .opacity(isFlipped ? 0 : 1)
+            
+            back
+                .rotation3DEffect(.degrees(isFlipped ? 0 : -180), axis: (x: 0, y: 1, z: 0))
+                .opacity(isFlipped ? 1 : 0)
+        }
+        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isFlipped)
+    }
+}
+
+// Shake animation for invalid bet
+struct ShakeEffect: GeometryEffect {
+    var amount: CGFloat = 10
+    var shakesPerUnit = 3
+    var animatableData: CGFloat
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        ProjectionTransform(CGAffineTransform(translationX: amount * sin(animatableData * .pi * CGFloat(shakesPerUnit)), y: 0))
+    }
+}
+
+// Auto-Bet Summary Modal
+struct AutoBetSummaryView: View {
+    @ObservedObject var viewModel: MinesViewModel
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Autobet Complete")
+                .font(.largeTitle).bold()
+            
+            VStack(alignment: .leading, spacing: 15) {
+                SummaryRow(title: "Total Profit:", value: String(format: "%.2f", viewModel.autoRunProfit), color: viewModel.autoRunProfit >= 0 ? .green : .red)
+                SummaryRow(title: "Bets Won:", value: "\(viewModel.autoBetWins)", color: .green)
+                SummaryRow(title: "Bets Lost:", value: "\(viewModel.autoBetLosses)", color: .red)
+                
+                let winRate = (Double(viewModel.autoBetWins) / Double(viewModel.autoBetWins + viewModel.autoBetLosses) * 100)
+                SummaryRow(title: "Win Rate:", value: String(format: "%.1f%%", winRate.isNaN ? 0 : winRate), color: .cyan)
+            }
+            .padding()
+            .background(SolidPanelView())
+            
+            Button("Done") {
+                dismiss()
+            }
+            .font(.headline).bold()
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(Color.purple)
+            .foregroundColor(.white)
+            .cornerRadius(15)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(red: 25/255, green: 25/255, blue: 35/255))
+        .foregroundColor(.white)
+    }
+}
+
+struct SummaryRow: View {
+    let title: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.headline)
+            Spacer()
+            Text(value)
+                .font(.headline).bold()
+                .foregroundColor(color)
+        }
+    }
+}
+
 
 #Preview {
     ContentView()
@@ -643,6 +937,7 @@ extension SessionManager {
         manager.isLoggedIn = true
         manager.username = "Kryska"
         manager.money = 250000
+        manager.level = 5
         manager.currentScreen = .mines
         return manager
     }

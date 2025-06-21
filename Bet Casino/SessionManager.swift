@@ -12,6 +12,9 @@ class SessionManager: ObservableObject {
     @Published var level: Int = 0
     @Published var betsPlaced: Int = 0
     @Published var totalMoneyWon: Int = 0
+    @Published var biggestWin: Int = 0
+    @Published var minesBets: Int = 0
+
     
     public var currentUserIdentifier: String?
     private let lastUserIdentifierKey = "lastUserIdentifier"
@@ -34,6 +37,8 @@ class SessionManager: ObservableObject {
             self.level = userData["level"] as? Int ?? 0
             self.betsPlaced = userData["betsPlaced"] as? Int ?? 0
             self.totalMoneyWon = userData["totalMoneyWon"] as? Int ?? 0
+            self.biggestWin = userData["biggestWin"] as? Int ?? 0
+            self.minesBets = userData["minesBets"] as? Int ?? 0
         }
         
         // This prevents the login screen from flashing for auto-logins.
@@ -56,6 +61,8 @@ class SessionManager: ObservableObject {
         userData["level"] = self.level
         userData["betsPlaced"] = self.betsPlaced
         userData["totalMoneyWon"] = self.totalMoneyWon
+        userData["biggestWin"] = self.biggestWin
+        userData["minesBets"] = self.minesBets
         
         UserDefaults.standard.set(userData, forKey: identifier)
         print("User data saved for identifier: \(identifier)")

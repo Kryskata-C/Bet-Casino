@@ -4,6 +4,7 @@ import SwiftUI
 enum Screen {
     case home
     case mines
+    case profile
 }
 
 struct ContentView: View {
@@ -21,20 +22,23 @@ struct MainCasinoView: View {
 
     var body: some View {
         ZStack {
-            // Background Layer
-            LinearGradient(colors: [Color.black, Color(red: 35/255, green: 0, blue: 50/255).opacity(0.9)], startPoint: .top, endPoint: .bottom)
+            // A more dynamic background
+            RadialGradient(gradient: Gradient(colors: [Color(red: 35/255, green: 0, blue: 70/255), .black]), center: .top, startRadius: 5, endRadius: 800)
                 .ignoresSafeArea()
 
-            // This VStack holds all UI elements.
             VStack(spacing: 0) {
-                TopUserBar(username: $session.username, money: $session.money, gems: $session.gems)
+                TopUserBar(username: $session.username, money: $session.money, gems: $session.gems, level: $session.level)
 
                 ZStack {
                     switch session.currentScreen {
                     case .home:
                         HomeView()
+                            .transition(.asymmetric(insertion: .opacity, removal: .opacity))
                     case .mines:
                         MinesView(session: session)
+                    case .profile:
+                        ProfileView()
+                           .transition(.asymmetric(insertion: .opacity, removal: .opacity))
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -42,7 +46,6 @@ struct MainCasinoView: View {
                 BottomNavBar(currentScreen: $session.currentScreen)
             }
         }
-        // This pushes the VStack to the edges of the screen.
         .ignoresSafeArea()
         .foregroundColor(.white)
         .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -50,21 +53,78 @@ struct MainCasinoView: View {
 }
 
 
-// HomeView contains the game selection list.
+// MARK: - Home View Redesign
 struct HomeView: View {
+    @State private var searchText = ""
+
+    var filteredTrendingGames: [Game] {
+        searchText.isEmpty ? trendingGames : trendingGames.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    var filteredOriginals: [Game] {
+        searchText.isEmpty ? originals : originals.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    var filteredBiggestWinners: [Game] {
+        searchText.isEmpty ? biggestWinners : biggestWinners.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 24) {
+            VStack(spacing: 36) {
+                VStack(spacing: 18) {
+                    Text("Welcome Back")
+                        .font(.system(size: 30, weight: .heavy, design: .rounded))
+                        .foregroundStyle(LinearGradient(colors: [.white, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+
+                    SearchBar(text: $searchText)
+                }
+                .padding(.top, 50)
+                .padding(.horizontal)
+
+                CarouselPromo()
+
                 EliteBanner()
-                GameSection(title: "Trending Games", games: trendingGames)
-                GameSection(title: "Biggest Winners", games: biggestWinners)
-                GameSection(title: "Originals", games: originals)
+
+                VStack(spacing: 40) {
+                    if !filteredTrendingGames.isEmpty {
+                        GameSection(title: "Trending Now", games: filteredTrendingGames)
+                    }
+                    if !filteredOriginals.isEmpty {
+                        GameSection(title: "Casino Originals", games: filteredOriginals)
+                    }
+                    if !filteredBiggestWinners.isEmpty {
+                        GameSection(title: "Biggest Winners", games: filteredBiggestWinners)
+                    }
+                }
+                .padding(.bottom, 60)
             }
-            .padding(.vertical)
         }
+        .background(
+            LinearGradient(colors: [Color.black, Color(red: 30/255, green: 0, blue: 50/255)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+        )
     }
 }
 
+struct CarouselPromo: View {
+    let promos = ["promo1", "promo2", "promo3"]
+
+    var body: some View {
+        TabView {
+            ForEach(promos, id: \.self) { promo in
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(LinearGradient(colors: [.purple, .black], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .overlay(Text("Limited Offer").font(.title2).bold().padding(), alignment: .bottomLeading)
+                    .padding(.horizontal, 20)
+            }
+        }
+        .frame(height: 160)
+        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+    }
+}
+
+// MARK: - Game Section and Cards Redesign
 struct GameSection: View {
     let title: String
     let games: [Game]
@@ -72,20 +132,27 @@ struct GameSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text(title).font(.title2).bold().padding(.horizontal)
-            
-            VStack(spacing: 15) {
-                ForEach(games) { game in
-                    Button(action: {
-                        withAnimation {
-                            if game.name == "Mines" {
-                                session.currentScreen = .mines
+            Text(title)
+                .font(.title2)
+                .bold()
+                .padding(.horizontal)
+                .foregroundStyle(LinearGradient(colors: [.white, .purple], startPoint: .leading, endPoint: .trailing))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(games) { game in
+                        Button {
+                            withAnimation {
+                                if game.name == "Mines" {
+                                    session.currentScreen = .mines
+                                }
                             }
+                        } label: {
+                            GameCard(game: game)
                         }
-                    }) {
-                        GameCard(game: game)
                     }
                 }
+                .padding(.horizontal)
             }
         }
     }
@@ -93,81 +160,187 @@ struct GameSection: View {
 
 struct GameCard: View {
     let game: Game
+    @State private var hasAppeared = false
 
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            if game.name == "Mines" {
-                Image("mines_card_bg")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(height: 150)
-                    .clipped()
-
-            } else {
-                game.color.frame(height: 150)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(game.name)
-                    .font(.title).bold()
-                Text(game.subtitle)
-                    .font(.headline)
-                    .foregroundColor(.white.opacity(0.8))
-            }
-            .padding()
-            .foregroundColor(.white)
-        }
-        .frame(height: 150)
-        .cornerRadius(20)
-        .padding(.horizontal)
-    }
-}
-
-struct SplashScreen: View {
-    @State private var scale: CGFloat = 0.8; @State private var opacity: Double = 0.0; @State private var rotation: Double = 0.0
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color.black, Color.purple.opacity(0.8)],startPoint: .top,endPoint: .bottom).ignoresSafeArea()
-            VStack(spacing: 12) {
-                Text("BET CASINO").font(.system(size: 40, weight: .heavy, design: .rounded)).foregroundStyle(LinearGradient(colors: [.white, .purple.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)).shadow(color: .purple.opacity(0.7), radius: 15, x: 0, y: 5).scaleEffect(scale).opacity(opacity).rotation3DEffect(.degrees(rotation), axis: (x: 0, y: 1, z: 0))
-                Text("Powered by FakeCoin™").font(.caption).foregroundColor(.white.opacity(0.7)).opacity(opacity * 0.8)
-            }.onAppear {
-                withAnimation(.easeOut(duration: 1.5)) { scale = 1.0; opacity = 1.0 }
-                withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) { rotation = 10 }
+            if UIImage(named: game.imageName) != nil {
+                Image(game.imageName)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 170, height: 230)
+                    .clipped()
+            } else {
+                LinearGradient(colors: [game.color.opacity(0.8), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .frame(width: 170, height: 230)
+            }
+
+            LinearGradient(colors: [Color.black.opacity(0.0), Color.black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Spacer()
+                Image(systemName: game.icon)
+                    .font(.title2)
+                    .foregroundColor(game.color)
+
+                Text(game.name)
+                    .font(.headline)
+                    .bold()
+
+                Text(game.subtitle)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.75))
+            }
+            .padding(12)
+            .frame(width: 170, height: 230, alignment: .bottomLeading)
+        }
+        .background(Color.black.opacity(0.2))
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 4)
+        .scaleEffect(hasAppeared ? 1 : 0.95)
+        .opacity(hasAppeared ? 1 : 0)
+        .onAppear {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                hasAppeared = true
             }
         }
     }
 }
 
-// MARK: - Final TopUserBar
+
+// MARK: - Top User Bar Redesign
 struct TopUserBar: View {
-    @Binding var username: String; @Binding var money: Int; @Binding var gems: Int
+    @EnvironmentObject var session: SessionManager
+    @Binding var username: String
+    @Binding var money: Int
+    @Binding var gems: Int
+    @Binding var level: Int
+
     var body: some View {
         HStack(alignment: .center) {
-            HStack(spacing: 12) {
-                Circle().fill(Color.purple.opacity(0.6)).frame(width: 50, height: 50).overlay(Text(username.isEmpty ? "?" : String(username.prefix(1)).uppercased()).font(.title2).bold().foregroundColor(.white))
-                VStack(alignment: .leading, spacing: 6) {
-                    // THE FIX for the wrapping name is here:
-                    Text(username)
-                        .font(.headline).bold()
-                        .lineLimit(1) // Ensure it stays on one line
-                        .minimumScaleFactor(0.8) // Allow font to shrink to 80% if needed
+            Button(action: {
+                withAnimation {
+                    session.currentScreen = .profile
+                }
+            }) {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(LinearGradient(colors: [.purple, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
                     
-                    Text("Level 7").font(.footnote).bold().foregroundColor(.gray)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(username)
+                            .font(.headline).bold()
+                        Text("Level \(level)")
+                            .font(.footnote).foregroundColor(.gray)
+                    }
                 }
             }
+            .buttonStyle(.plain)
+
             Spacer()
-            HStack(spacing: 16) {
+
+            HStack(spacing: 12) {
                 CurrencyDisplay(value: money, icon: "bitcoinsign.circle.fill", color: .yellow)
                 CurrencyDisplay(value: gems, icon: "diamond.fill", color: .cyan)
-                Button { vibrate() } label: { Image(systemName: "bell.fill").font(.title3).padding(8).background(Circle().fill(Color.black.opacity(0.2))) }
             }
         }
         .padding(.horizontal)
-        // Add top padding to move the content down from the status bar
         .padding(.top, 45)
         .padding(.bottom, 10)
-        .background(.black)
+        .background(.black.opacity(0.2))
+    }
+}
+
+// MARK: - Bottom Nav Bar Redesign
+struct BottomNavBar: View {
+    @Binding var currentScreen: Screen
+    
+    var body: some View {
+        HStack {
+            NavItem(title: "Home", icon: "house.fill", isSelected: currentScreen == .home) {
+                withAnimation { currentScreen = .home }
+            }
+            NavItem(title: "My Bets", icon: "clock.arrow.circlepath", isSelected: false) { /* Action */ }
+            NavItem(title: "Shop", icon: "bag.fill", isSelected: false) { /* Action */ }
+        }
+        .padding()
+        .cornerRadius(25)
+        .padding(.horizontal)
+        .padding(.bottom, 5) // Move it up slightly from the very bottom
+    }
+}
+
+struct NavItem: View {
+    let title: String
+    let icon: String
+    var isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.title2)
+                Text(title)
+                    .font(.caption)
+            }
+            .foregroundColor(isSelected ? .purple : .white.opacity(0.7))
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+// MARK: - New and Helper Views
+struct SplashScreen: View {
+    @State private var scale: CGFloat = 0.8
+    @State private var opacity: Double = 0.0
+    @State private var rotation: Double = 0.0
+    
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [Color.black, Color.purple.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 12) {
+                Text("BET CASINO")
+                    .font(.system(size: 40, weight: .heavy, design: .rounded))
+                    .foregroundStyle(LinearGradient(colors: [.white, .purple.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .shadow(color: .purple.opacity(0.7), radius: 15, x: 0, y: 5)
+                    .scaleEffect(scale)
+                    .opacity(opacity)
+                    .rotation3DEffect(.degrees(rotation), axis: (x: 0, y: 1, z: 0))
+                
+                Text("Powered by FakeCoin™")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
+                    .opacity(opacity * 0.8)
+            }
+            .onAppear {
+                withAnimation(.easeOut(duration: 1.5)) {
+                    scale = 1.0
+                    opacity = 1.0
+                }
+                withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+                    rotation = 10
+                }
+            }
+        }
+    }
+}
+
+struct SearchBar: View {
+    @Binding var text: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.gray)
+            TextField("Search for a game...", text: $text)
+        }
+        .padding(12)
+        .background(Color.black.opacity(0.3))
+        .cornerRadius(15)
     }
 }
 
@@ -178,7 +351,6 @@ struct CurrencyDisplay: View {
             Image(systemName: icon).foregroundColor(color)
             Text(formatNumber(value))
                 .fontWeight(.semibold)
-                .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
@@ -189,52 +361,27 @@ struct CurrencyDisplay: View {
 
 struct EliteBanner: View {
     var body: some View {
-        RoundedRectangle(cornerRadius: 20).fill(LinearGradient(colors: [Color.purple.opacity(0.7), Color.black.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)).overlay(HStack {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("ELITE SUBSCRIPTION").font(.title2).bold()
-                Text("Unlock exclusive bonuses and VIP support.").font(.caption).opacity(0.9)
+        ZStack {
+            RoundedRectangle(cornerRadius: 20)
+                .fill(LinearGradient(colors: [Color.purple, .blue.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .shadow(color: .purple.opacity(0.5), radius: 10)
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("ELITE PASS")
+                        .font(.title2).bold()
+                    Text("Unlock exclusive bonuses, VIP support, and more.")
+                        .font(.caption).opacity(0.9)
+                }
+                Spacer()
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 50))
+                    .foregroundColor(.yellow.opacity(0.9))
             }
-            Spacer()
-            Image(systemName: "crown.fill").font(.system(size: 60)).foregroundColor(.yellow.opacity(0.8))
-        }.padding(20)).frame(height: 120).padding(.horizontal)
-    }
-}
-
-// MARK: - Final BottomNavBar
-struct BottomNavBar: View {
-    @Binding var currentScreen: Screen
-    var body: some View {
-        HStack {
-            Button(action: { withAnimation { currentScreen = .home } }) {
-                NavItem(title: "Home", icon: "house.fill", isSelected: currentScreen == .home)
-            }
-            Button(action: { /* Set state for My Bets */ }) {
-                 NavItem(title: "My Bets", icon: "clock.arrow.circlepath", isSelected: false)
-            }
-            Button(action: { /* Set state for Elite */ }) {
-                 NavItem(title: "Elite", icon: "crown.fill", isSelected: false)
-            }
-             Button(action: { /* Set state for Shop */ }) {
-                NavItem(title: "Shop", icon: "bag.fill", isSelected: false)
-            }
+            .padding(25)
         }
-        .padding(.top, 15)
-        // Add bottom padding to move the content up from the home indicator
-        .padding(.bottom, 30)
+        .frame(height: 120)
         .padding(.horizontal)
-        .background(.black)
-    }
-}
-
-struct NavItem: View {
-    let title: String; let icon: String; var isSelected: Bool = false
-    var body: some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon).font(.title2).foregroundColor(isSelected ? .purple : .white.opacity(0.7))
-            Text(title).font(.caption).foregroundColor(isSelected ? .purple : .white.opacity(0.7))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 4)
     }
 }
 
@@ -243,11 +390,21 @@ struct Game: Identifiable {
     let name: String
     let subtitle: String
     let color: Color
+    let imageName: String // Image for the card background
+    let icon: String // Icon to display on the card
 }
 
-let trendingGames: [Game] = [ Game(name: "Mines", subtitle: "Uncover the gems", color: .purple), Game(name: "Plinko", subtitle: "Drop and win", color: .pink) ]
-let biggestWinners: [Game] = [ Game(name: "Crash", subtitle: "Ride the multiplier", color: .yellow) ]
-let originals: [Game] = [ Game(name: "Blackjack", subtitle: "Classic card game", color: .cyan), Game(name: "Slots", subtitle: "Spin the reels", color: .orange) ]
+let trendingGames: [Game] = [
+    Game(name: "Mines", subtitle: "Uncover the gems", color: .purple, imageName: "mines_card_bg", icon: "hammer.fill"),
+    Game(name: "Plinko", subtitle: "Drop and win", color: .pink, imageName: "plinko_card_bg", icon: "circle.grid.3x3.fill")
+]
+let biggestWinners: [Game] = [
+    Game(name: "Crash", subtitle: "Ride the multiplier", color: .yellow, imageName: "crash_card_bg", icon: "chart.line.uptrend.xyaxis")
+]
+let originals: [Game] = [
+    Game(name: "Blackjack", subtitle: "Classic card game", color: .cyan, imageName: "blackjack_card_bg", icon: "suit.club.fill"),
+    Game(name: "Slots", subtitle: "Spin the reels", color: .orange, imageName: "slots_card_bg", icon: "7.square.fill")
+]
 
 func vibrate() { let impact = UIImpactFeedbackGenerator(style: .light); impact.impactOccurred() }
 
@@ -270,4 +427,8 @@ func formatNumber(_ num: Int) -> String {
     return "\(num)"
 }
 
-#Preview { ContentView().environmentObject(SessionManager()) }
+#Preview {
+    let session = SessionManager()
+    session.isLoggedIn = true
+    return ContentView().environmentObject(session)
+}

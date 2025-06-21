@@ -1,19 +1,21 @@
 import SwiftUI
 import Combine
 
-// MARK: - Data Models
-// Define the data structures for the game here.
-// By placing Tile here, any other file that imports this view model can use it.
+// MARK: - Enums & Models
+enum BettingMode {
+    case manual, auto
+}
+
+enum MinesFocusField {
+    case betAmount, numberOfBets
+}
+
 struct Tile: Identifiable {
     let id = UUID()
     var isFlipped: Bool = false
     var isBomb: Bool = false
     var hasShine: Bool = false
     var wasLosingBomb: Bool = false
-}
-
-enum BettingMode {
-    case manual, auto
 }
 
 // MARK: - ViewModel
@@ -68,6 +70,7 @@ class MinesViewModel: ObservableObject {
         
         sessionManager.money -= bet
         sessionManager.betsPlaced += 1
+        sessionManager.minesBets += 1
         
         resetBoard()
         gameState = .playing
@@ -126,7 +129,13 @@ class MinesViewModel: ObservableObject {
             
             let winningsInt = Int(finalWinnings.rounded())
             sessionManager.money += winningsInt
-            sessionManager.totalMoneyWon += winningsInt
+            
+            let profitInt = Int(roundProfit.rounded())
+            sessionManager.totalMoneyWon += profitInt
+            if profitInt > sessionManager.biggestWin {
+                sessionManager.biggestWin = profitInt
+            }
+            
         } else {
             self.profit = -bet
             resetStreak()
@@ -216,6 +225,7 @@ class MinesViewModel: ObservableObject {
             self.resetBoard()
             self.sessionManager.money -= bet
             self.sessionManager.betsPlaced += 1
+            self.sessionManager.minesBets += 1
             self.bombIndexes = generateBombs(count: Int(mineCount))
         }
 
@@ -234,9 +244,15 @@ class MinesViewModel: ObservableObject {
             await MainActor.run {
                 self.winStreak += 1
                 self.streakBonusMultiplier = streakBonus
+                
                 let winningsInt = Int(finalWinnings.rounded())
                 self.sessionManager.money += winningsInt
-                self.sessionManager.totalMoneyWon += winningsInt
+
+                let profitInt = Int(lastRoundProfit.rounded())
+                self.sessionManager.totalMoneyWon += profitInt
+                if profitInt > self.sessionManager.biggestWin {
+                    self.sessionManager.biggestWin = profitInt
+                }
             }
         }
 
@@ -293,15 +309,14 @@ class MinesViewModel: ObservableObject {
     }
     
     func calculateStreakBonus(tilesUncovered: Int) -> Double {
+        let level = 1.0
         guard winStreak > 0 else { return 1.0 }
-        guard mineCount < totalTiles else { return 1.0 }
-
         let uncoveredRatio = Double(tilesUncovered) / (totalTiles - mineCount)
         let mineDensity = mineCount / totalTiles
-        let baseRisk = uncoveredRatio * mineDensity
-        let streakPower = log(Double(winStreak) + 1) * 1.25
-        let rarityBonus = pow((1.0 + baseRisk), streakPower)
-        let dynamicCap = 1.0 + (mineDensity * 12.0)
-        return min(dynamicCap, max(1.0, rarityBonus))
+        let streakFactor = log(Double(winStreak) + 1) * 1.25
+        let levelMultiplier = pow(1.15, level)
+        let bonus = 1.0 + (uncoveredRatio * mineDensity * streakFactor * levelMultiplier)
+        return min(25.0, bonus)
     }
+
 }

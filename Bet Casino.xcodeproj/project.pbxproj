@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		E085B2B02E0700730081DA1A /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E085B2AF2E0700730081DA1A /* AVFoundation.framework */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		E0D5C5EC2E04AF9500B3FE45 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,6 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		E085B2AF2E0700730081DA1A /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		E0D5C5DE2E04AF9500B3FE45 /* Bet Casino.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Bet Casino.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0D5C5EB2E04AF9500B3FE45 /* Bet CasinoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Bet CasinoTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0D5C5F52E04AF9500B3FE45 /* Bet CasinoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Bet CasinoUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -65,6 +70,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E085B2B02E0700730081DA1A /* AVFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -92,6 +98,14 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		E085B2AE2E0700730081DA1A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				E085B2AF2E0700730081DA1A /* AVFoundation.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		E0D5C5D52E04AF9500B3FE45 = {
 			isa = PBXGroup;
 			children = (
@@ -99,6 +113,7 @@
 				E0D5C5E02E04AF9500B3FE45 /* Bet Casino */,
 				E0D5C5EE2E04AF9500B3FE45 /* Bet CasinoTests */,
 				E0D5C5F82E04AF9500B3FE45 /* Bet CasinoUITests */,
+				E085B2AE2E0700730081DA1A /* Frameworks */,
 				E0D5C5DF2E04AF9500B3FE45 /* Products */,
 			);
 			sourceTree = "<group>";

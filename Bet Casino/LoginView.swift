@@ -13,7 +13,7 @@ struct LoginView: View {
     @State private var isLoggingIn = false
     @State private var showRegisterView = false
     
-    // **THE FIX**: Add a state variable to control developer tools visibility
+    // State to control developer tools visibility
     @State private var showDevTools = true
 
     var body: some View {
@@ -34,7 +34,6 @@ struct LoginView: View {
                             .foregroundColor(.white.opacity(0.7))
                     }
                     .padding(.bottom, 40)
-                    // **THE FIX**: Add a gesture to toggle the dev tools
                     .onLongPressGesture {
                         withAnimation {
                             showDevTools.toggle()
@@ -72,7 +71,6 @@ struct LoginView: View {
                         .frame(height: 50)
                         .cornerRadius(12)
                         
-                        // **THE FIX**: Conditionally show the developer tools section
                         if showDevTools {
                             DevToolsView()
                         }
@@ -158,7 +156,9 @@ struct LoginView: View {
                     "gems": 50,
                     "level": 0,
                     "betsPlaced": 0,
-                    "totalMoneyWon": 0
+                    "totalMoneyWon": 0,
+                    "biggestWin": 0,
+                    "minesBets": 0
                 ]
                 
                 UserDefaults.standard.set(newUser, forKey: userIdentifier)
@@ -174,67 +174,8 @@ struct LoginView: View {
     }
 }
 
-// MARK: - Reusable Authentication Components
 
-struct AuthTextField: View {
-    let icon: String
-    let placeholder: String
-    @Binding var text: String
-    var isSecure: Bool = false
-    
-    var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundColor(.purple)
-                .frame(width: 20)
-            
-            if isSecure {
-                SecureField(placeholder, text: $text)
-            } else {
-                TextField(placeholder, text: $text)
-                    .autocapitalization(.none)
-            }
-        }
-        .padding()
-        .background(Color.black.opacity(0.2))
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-        )
-    }
-}
-
-
-struct AuthButton: View {
-    let title: String
-    var isLoading: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Spacer()
-                if isLoading {
-                    ProgressView()
-                        .tint(.white)
-                } else {
-                    Text(title)
-                        .fontWeight(.bold)
-                }
-                Spacer()
-            }
-            .frame(height: 50)
-            .background(Color.purple)
-            .foregroundColor(.white)
-            .cornerRadius(12)
-            .shadow(color: .purple.opacity(0.4), radius: 8, y: 4)
-        }
-        .disabled(isLoading)
-    }
-}
-
-// **THE FIX**: Extracted DevTools into its own view for cleanliness
+// MARK: - Extracted DevTools View
 struct DevToolsView: View {
     @EnvironmentObject var session: SessionManager
     
@@ -242,6 +183,20 @@ struct DevToolsView: View {
         VStack {
             Divider()
                 .padding(.vertical, 8)
+            
+            Button(action: {
+                session.currentScreen = .profile
+                session.isLoggedIn = true
+            }) {
+                Text("Go to Profile (Dev)")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(10)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.blue.opacity(0.8))
+                    .cornerRadius(8)
+            }
             
             Button(action: {
                 print("Attempting to clear all user data...")
@@ -267,12 +222,6 @@ struct DevToolsView: View {
         }
         .transition(.opacity)
     }
-}
-
-
-// MARK: - Helper Functions
-func vibrate(style: UINotificationFeedbackGenerator.FeedbackType) {
-    UINotificationFeedbackGenerator().notificationOccurred(style)
 }
 
 // MARK: - Preview

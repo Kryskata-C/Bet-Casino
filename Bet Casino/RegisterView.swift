@@ -100,7 +100,6 @@ struct RegisterView: View {
         error = nil
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            // **THE CHANGE**: Added new fields for user statistics
             let userData: [String: Any] = [
                 "username": username,
                 "email": email.lowercased(),
@@ -109,7 +108,9 @@ struct RegisterView: View {
                 "gems": 10,
                 "level": 0,
                 "betsPlaced": 0,
-                "totalMoneyWon": 0
+                "totalMoneyWon": 0,
+                "biggestWin": 0,
+                "minesBets": 0
             ]
             
             UserDefaults.standard.set(userData, forKey: email.lowercased())
