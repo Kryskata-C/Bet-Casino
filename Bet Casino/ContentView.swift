@@ -404,7 +404,7 @@ struct Game: Identifiable {
 
 let trendingGames: [Game] = [
     Game(name: "Mines", subtitle: "Uncover the gems", color: .purple, imageName: "mines_card_bg", icon: "hammer.fill"),
-]
+	]
 let biggestWinners: [Game] = [
     
 ]

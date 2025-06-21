@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E06CBE252E0761E700DFED0C /* Mines Start.wav in Resources */ = {isa = PBXBuildFile; fileRef = E06CBE232E0761E700DFED0C /* Mines Start.wav */; };
+		E06CBE262E0761E700DFED0C /* Mines Tile Flipped.wav in Resources */ = {isa = PBXBuildFile; fileRef = E06CBE242E0761E700DFED0C /* Mines Tile Flipped.wav */; };
+		E06CBE272E0761E700DFED0C /* Mines Cashout.wav in Resources */ = {isa = PBXBuildFile; fileRef = E06CBE222E0761E700DFED0C /* Mines Cashout.wav */; };
+		E06CBE292E0762EF00DFED0C /* Mine Tile.wav in Resources */ = {isa = PBXBuildFile; fileRef = E06CBE282E0762EF00DFED0C /* Mine Tile.wav */; };
 		E085B2B02E0700730081DA1A /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E085B2AF2E0700730081DA1A /* AVFoundation.framework */; };
 /* End PBXBuildFile section */
 
@@ -28,6 +32,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		E06CBE222E0761E700DFED0C /* Mines Cashout.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "Mines Cashout.wav"; sourceTree = "<group>"; };
+		E06CBE232E0761E700DFED0C /* Mines Start.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "Mines Start.wav"; sourceTree = "<group>"; };
+		E06CBE242E0761E700DFED0C /* Mines Tile Flipped.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "Mines Tile Flipped.wav"; sourceTree = "<group>"; };
+		E06CBE282E0762EF00DFED0C /* Mine Tile.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "Mine Tile.wav"; sourceTree = "<group>"; };
 		E085B2AF2E0700730081DA1A /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		E0D5C5DE2E04AF9500B3FE45 /* Bet Casino.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Bet Casino.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0D5C5EB2E04AF9500B3FE45 /* Bet CasinoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Bet CasinoTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -101,7 +109,11 @@
 		E085B2AE2E0700730081DA1A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				E06CBE222E0761E700DFED0C /* Mines Cashout.wav */,
+				E06CBE232E0761E700DFED0C /* Mines Start.wav */,
+				E06CBE242E0761E700DFED0C /* Mines Tile Flipped.wav */,
 				E085B2AF2E0700730081DA1A /* AVFoundation.framework */,
+				E06CBE282E0762EF00DFED0C /* Mine Tile.wav */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -248,6 +260,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E06CBE292E0762EF00DFED0C /* Mine Tile.wav in Resources */,
+				E06CBE252E0761E700DFED0C /* Mines Start.wav in Resources */,
+				E06CBE262E0761E700DFED0C /* Mines Tile Flipped.wav in Resources */,
+				E06CBE272E0761E700DFED0C /* Mines Cashout.wav in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

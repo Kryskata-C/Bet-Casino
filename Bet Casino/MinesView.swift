@@ -27,15 +27,18 @@ struct Particle: Identifiable {
     var opacity: Double = 1.0
 }
 
+// Located in MinesView.swift
+
 // MARK: - Sound Manager
 class SoundManager {
     static let shared = SoundManager()
     private var audioPlayer: AVAudioPlayer?
 
     enum SoundOption: String {
-        case flip = "tile_flip.wav"
-        case bomb = "bomb_hit.wav"
-        case win = "win_sound.wav"
+        case start = "Mines Start.wav"          // New
+        case flip = "Mines Tile Flipped.wav"    // Updated
+        case cashout = "Mines Cashout.wav"      // Updated
+        case bomb = "Mine Tile.wav"              // Existing
     }
 
     func playSound(sound: SoundOption) {
@@ -115,6 +118,7 @@ class MinesViewModel: ObservableObject {
             }
             return
         }
+        SoundManager.shared.playSound(sound: .start)
         resetGameCancellable?.cancel()
         
         sessionManager.money -= bet
@@ -171,7 +175,7 @@ class MinesViewModel: ObservableObject {
     
     func cashout() {
         guard gameState == .playing, !selectedTiles.isEmpty else { return }
-        SoundManager.shared.playSound(sound: .win)
+        SoundManager.shared.playSound(sound: .cashout)
         endGame(won: true)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
