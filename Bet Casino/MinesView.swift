@@ -425,26 +425,24 @@ struct MinesView: View {
             LinearGradient(colors: [.black, Color(red: 35/255, green: 0, blue: 50/255).opacity(0.9)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
 
-            VStack(spacing: 15) {
-                StatusHeaderView(viewModel: viewModel)
-                
-                ZStack {
-                    GridView(viewModel: viewModel)
-                    
-                    if showStreakBonus {
-                        StreakBonusView(bonus: viewModel.streakBonusMultiplier)
-                            .id(streakAnimationId)
+            ScrollView {
+                VStack(spacing: 15) {
+                    StatusHeaderView(viewModel: viewModel)
+                    ZStack {
+                        GridView(viewModel: viewModel)
+                        if showStreakBonus {
+                            StreakBonusView(bonus: viewModel.streakBonusMultiplier)
+                                .id(streakAnimationId)
+                        }
                     }
+                    if viewModel.gameState != .playing {
+                        ControlsView(viewModel: viewModel, focusedField: $focusedField)
+                    }
+                    Spacer()
                 }
-                
-                // Show controls only when not in an active game
-                if viewModel.gameState != .playing {
-                    ControlsView(viewModel: viewModel, focusedField: $focusedField)
-                }
-                
-                Spacer() // Pushes content up
+                .padding(.horizontal)
             }
-            .padding()
+
 
             // Show floating cashout button only during an active game
             if viewModel.gameState == .playing {

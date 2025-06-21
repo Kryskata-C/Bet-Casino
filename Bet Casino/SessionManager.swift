@@ -39,6 +39,9 @@ class SessionManager: ObservableObject {
             self.totalMoneyWon = userData["totalMoneyWon"] as? Int ?? 0
             self.biggestWin = userData["biggestWin"] as? Int ?? 0
             self.minesBets = userData["minesBets"] as? Int ?? 0
+            
+            // Recalculate level on load to ensure it's up to date
+            updateLevel()
         }
         
         // This prevents the login screen from flashing for auto-logins.
@@ -52,6 +55,9 @@ class SessionManager: ObservableObject {
     
     func saveData() {
         guard let identifier = currentUserIdentifier else { return }
+        
+        // Update the user's level before saving
+        updateLevel()
         
         var userData = UserDefaults.standard.dictionary(forKey: identifier) ?? [:]
         
@@ -75,5 +81,27 @@ class SessionManager: ObservableObject {
         
         // Remove the identifier to disable auto-login.
         UserDefaults.standard.removeObject(forKey: lastUserIdentifierKey)
+    }
+    
+    // MARK: - Level Calculation
+    
+    /// Recalculates and updates the user's level based on their total money won.
+    private func updateLevel() {
+        self.level = calculateLevel(totalMoneyWon: Double(self.totalMoneyWon))
+    }
+    
+    /// Calculates the player's level based on a logarithmic curve.
+    /// This new formula makes leveling up much harder, targeting level 100 at 700M won.
+    /// - Parameter totalMoneyWon: The total amount of money the user has won.
+    /// - Returns: The calculated level, capped at 100.
+    private func calculateLevel(totalMoneyWon: Double) -> Int {
+        guard totalMoneyWon > 0 else { return 0 }
+        
+        // This formula uses a base-10 logarithm for a smoother, more aggressive curve.
+        // The divisor is increased significantly to scale the experience towards the 700M target.
+        let baseXP = totalMoneyWon / 500_000.0
+        let level = log10(baseXP + 1) * 20.0
+        
+        return min(100, Int(level.rounded()))
     }
 }
