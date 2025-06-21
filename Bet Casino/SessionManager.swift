@@ -14,6 +14,7 @@ class SessionManager: ObservableObject {
     @Published var totalMoneyWon: Int = 0
     @Published var biggestWin: Int = 0
     @Published var minesBets: Int = 0
+    @Published var lastBetAmount: Int = 0
 
     // --- Level Up Animation Properties ---
     @Published var showLevelUpAnimation = false

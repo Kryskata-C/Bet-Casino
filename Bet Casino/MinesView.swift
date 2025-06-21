@@ -60,6 +60,7 @@ class MinesViewModel: ObservableObject {
     @Published var tiles: [Tile] = []
     @Published var gameState: GameState = .idle
     @Published var bettingMode: BettingMode = .manual
+    @Published var debugMode: Bool = true
 
     // Bet Properties
     @Published var mineCount: Double = 3.0
@@ -119,11 +120,22 @@ class MinesViewModel: ObservableObject {
         sessionManager.money -= bet
         sessionManager.betsPlaced += 1
         sessionManager.minesBets += 1
-        
+        if Int(betAmount) != sessionManager.lastBetAmount {
+            resetStreak()
+            sessionManager.lastBetAmount = Int(betAmount) ?? 0
+        }
         resetBoard()
         gameState = .playing
         bombIndexes = generateBombs(count: Int(mineCount))
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+        if debugMode {
+            for bombIndex in bombIndexes {
+                let row = bombIndex / 5
+                let col = bombIndex % 5
+                print("💣 Bomb at row \(row), col \(col)")
+            }
+        }
+
     }
 
     func tileTapped(_ index: Int) {
@@ -378,24 +390,40 @@ class MinesViewModel: ObservableObject {
     
     func calculateManualMultiplier() -> Double {
         guard !bombIndexes.isEmpty else { return 1.0 }
-        let n = totalTiles, m = Double(bombIndexes.count), k = Double(selectedTiles.count)
+        let n = totalTiles
+        let m = Double(bombIndexes.count)
+        let k = Double(selectedTiles.count)
         if k == 0 { return 1.0 }
         var calculatedMult = 1.0
-        for i in 0..<Int(k) { calculatedMult *= (n - m - Double(i)) / (n - Double(i)) }
-        return (1 / calculatedMult) * 0.98
+        for i in 0..<Int(k) {
+            calculatedMult *= (n - m - Double(i)) / (n - Double(i))
+        }
+        let base = (1 / calculatedMult) * 0.98
+        let risk = min(1.0, (Double(betAmount) ?? 0) / max(Double(sessionManager.money) + (Double(betAmount) ?? 0), 1))
+        let mineBonus = 1.0 + (m / n) * 0.3
+        return base * mineBonus * (1 + risk * 0.15)
     }
-    
+
     private func calculateAutoMultiplier() -> Double {
         guard !bombIndexes.isEmpty else { return 1.0 }
-        let n = totalTiles, m = Double(bombIndexes.count), k = Double(autoBetSelection.count)
+        let n = totalTiles
+        let m = Double(bombIndexes.count)
+        let k = Double(autoBetSelection.count)
         if k == 0 { return 1.0 }
         var calculatedMult = 1.0
-        for i in 0..<Int(k) { calculatedMult *= (n - m - Double(i)) / (n - Double(i)) }
-        return (1 / calculatedMult) * 0.98
+        for i in 0..<Int(k) {
+            calculatedMult *= (n - m - Double(i)) / (n - Double(i))
+        }
+        let base = (1 / calculatedMult) * 0.98
+        let risk = min(1.0, (Double(betAmount) ?? 0) / max(Double(sessionManager.money) + (Double(betAmount) ?? 0), 1))
+        let mineBonus = 1.0 + (m / n) * 0.3
+        return base * mineBonus * (1 + risk * 0.15)
     }
+
+
     
     func calculateStreakBonus(tilesUncovered: Int) -> Double {
-        let level = Double(sessionManager.level)
+        let level = 10.0
         guard winStreak > 0 else { return 1.0 }
         let uncoveredRatio = Double(tilesUncovered) / (totalTiles - mineCount)
         let mineDensity = mineCount / totalTiles
@@ -428,21 +456,24 @@ struct MinesView: View {
             ScrollView {
                 VStack(spacing: 15) {
                     StatusHeaderView(viewModel: viewModel)
+
                     ZStack {
                         GridView(viewModel: viewModel)
+
                         if showStreakBonus {
                             StreakBonusView(bonus: viewModel.streakBonusMultiplier)
                                 .id(streakAnimationId)
                         }
                     }
+
                     if viewModel.gameState != .playing {
                         ControlsView(viewModel: viewModel, focusedField: $focusedField)
                     }
+
                     Spacer()
                 }
                 .padding(.horizontal)
             }
-
 
             // Show floating cashout button only during an active game
             if viewModel.gameState == .playing {
@@ -587,9 +618,10 @@ struct GridView: View {
     var body: some View {
         LazyVGrid(columns: viewModel.columns, spacing: 10) {
             ForEach(0..<Int(viewModel.totalTiles), id: \.self) { index in
-                TileView(tile: $viewModel.tiles[index], isAutoSelected: viewModel.autoBetSelection.contains(index)) {
+                TileView(tile: $viewModel.tiles[index], isAutoSelected: viewModel.autoBetSelection.contains(index), onTap: {
                     viewModel.tileTapped(index)
-                }
+                }, viewModel: viewModel)
+
             }
         }
     }
@@ -599,6 +631,7 @@ struct TileView: View {
     @Binding var tile: Tile
     var isAutoSelected: Bool
     var onTap: () -> Void
+    var viewModel: MinesViewModel
     @State private var scale: CGFloat = 1.0
     
     var body: some View {
@@ -609,7 +642,10 @@ struct TileView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(Color.white.opacity(0.05))
-                    .overlay(isSetupMode ? RoundedRectangle(cornerRadius: 10).stroke(Color.purple, lineWidth: 4) : nil)
+                    .overlay(
+                            isSetupMode ? RoundedRectangle(cornerRadius: 10).stroke(Color.purple, lineWidth: 4) :
+                                (viewModel.debugMode && viewModel.gameState != .gameOver && tile.isBomb ? RoundedRectangle(cornerRadius: 10).stroke(Color.red, lineWidth: 4) : nil)
+                        )
             }
         } back: {
             // Back of the tile
@@ -935,7 +971,7 @@ extension SessionManager {
         manager.isLoggedIn = true
         manager.username = "Kryska"
         manager.money = 250000
-        manager.level = 5
+        manager.level = 100
         manager.currentScreen = .mines
         return manager
     }

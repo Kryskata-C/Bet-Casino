@@ -14,8 +14,8 @@
             filePath = "Bet Casino/MinesView.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "319"
-            endingLineNumber = "319"
+            startingLineNumber = "331"
+            endingLineNumber = "331"
             landmarkName = "runAutoBetRound(bet:)"
             landmarkType = "7">
          </BreakpointContent>
