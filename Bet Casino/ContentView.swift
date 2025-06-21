@@ -1,11 +1,8 @@
 import UIKit
 import SwiftUI
 
-enum Screen {
-    case home
-    case mines
-    case profile
-}
+// The duplicate 'Screen' enum has been REMOVED from this file.
+// It should only be defined in SessionManager.swift
 
 struct ContentView: View {
     @EnvironmentObject var session: SessionManager
@@ -15,9 +12,6 @@ struct ContentView: View {
             .environmentObject(session)
     }
 }
-
-// MARK: - Main App Shell
-// ... (keep the rest of the file the same)
 
 // MARK: - Main App Shell
 struct MainCasinoView: View {
@@ -39,6 +33,8 @@ struct MainCasinoView: View {
                             .transition(.asymmetric(insertion: .opacity, removal: .opacity))
                     case .mines:
                         MinesView(session: session)
+                    case .towers: // This case is for the new Towers game
+                        TowersView(session: session)
                     case .profile:
                         ProfileView()
                            .transition(.asymmetric(insertion: .opacity, removal: .opacity))
@@ -60,8 +56,6 @@ struct MainCasinoView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 }
-
-// ... (keep the rest of the file the same)
 
 
 // MARK: - Home View Redesign
@@ -156,6 +150,8 @@ struct GameSection: View {
                             withAnimation {
                                 if game.name == "Mines" {
                                     session.currentScreen = .mines
+                                } else if game.name == "Towers" { // Navigation to Towers
+                                    session.currentScreen = .towers
                                 }
                             }
                         } label: {
@@ -259,7 +255,8 @@ struct TopUserBar: View {
         .padding(.horizontal)
         .padding(.top, 45)
         .padding(.bottom, 10)
-        .background(.black.opacity(0.2))
+        .background(RadialGradient(gradient: Gradient(colors: [Color(red: 0/255, green: 0, blue: 0/255), .black]), center: .top, startRadius: 1, endRadius: 800))
+
     }
 }
 
@@ -413,9 +410,11 @@ let biggestWinners: [Game] = [
     Game(name: "Crash", subtitle: "Ride the multiplier", color: .yellow, imageName: "crash_card_bg", icon: "chart.line.uptrend.xyaxis")
 ]
 let originals: [Game] = [
+    Game(name: "Towers", subtitle: "Climb to the top", color: .red, imageName: "towers_card_bg", icon: "building.columns.fill"), // Added Towers game
     Game(name: "Blackjack", subtitle: "Classic card game", color: .cyan, imageName: "blackjack_card_bg", icon: "suit.club.fill"),
     Game(name: "Slots", subtitle: "Spin the reels", color: .orange, imageName: "slots_card_bg", icon: "7.square.fill")
 ]
+
 
 func vibrate() { let impact = UIImpactFeedbackGenerator(style: .light); impact.impactOccurred() }
 

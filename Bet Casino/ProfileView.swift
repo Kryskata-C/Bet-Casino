@@ -148,9 +148,7 @@ struct ProfileHeaderView: View {
 
             HStack {
                 LevelView(level: level)
-                Text("· Casino grinder with a dream.")
-                    .font(.footnote)
-                    .foregroundColor(.white.opacity(0.7))
+                
             }
         }
     }
