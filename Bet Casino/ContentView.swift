@@ -1,49 +1,31 @@
-// In ContentView.swift, please replace the existing MainCasinoView struct with this one.
-
 import UIKit
 import SwiftUI
 
-// This enum defines the main screens of the app for navigation.
-// It should only be defined here to avoid errors.
 enum Screen {
     case home
     case mines
-    // Add other screens like .myBets, .elite, .shop here
 }
 
 struct ContentView: View {
-    @State private var showMain = false
     @EnvironmentObject var session: SessionManager
 
     var body: some View {
-        ZStack {
-            if session.isLoggedIn {
-                MainCasinoView()
-                    .environmentObject(session)
-            } else if showMain {
-                 LoginView()
-                    .environmentObject(session)
-            } else {
-                SplashScreen()
-                    .onAppear {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                            withAnimation(.easeOut(duration: 0.6)) {
-                                self.showMain = true
-                            }
-                        }
-                    }
-            }
-        }
+        MainCasinoView()
+            .environmentObject(session)
     }
 }
 
-// MARK: - Main App Shell (Corrected)
+// MARK: - Main App Shell
 struct MainCasinoView: View {
     @EnvironmentObject var session: SessionManager
 
     var body: some View {
         ZStack {
-            // Main content area that will be affected by the keyboard
+            // Background Layer
+            LinearGradient(colors: [Color.black, Color(red: 35/255, green: 0, blue: 50/255).opacity(0.9)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+
+            // This VStack holds all UI elements.
             VStack(spacing: 0) {
                 TopUserBar(username: $session.username, money: $session.money, gems: $session.gems)
 
@@ -51,28 +33,19 @@ struct MainCasinoView: View {
                     switch session.currentScreen {
                     case .home:
                         HomeView()
-                            .transition(.opacity.animation(.easeOut))
                     case .mines:
                         MinesView(session: session)
-                            .transition(.opacity.animation(.easeOut))
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .padding(.bottom, 80) // Add padding to the bottom to prevent content from being hidden behind the nav bar
 
-            // VStack to hold the BottomNavBar and push it to the bottom
-            VStack {
-                Spacer() // Pushes the nav bar to the very bottom of the ZStack
                 BottomNavBar(currentScreen: $session.currentScreen)
             }
         }
-        .background(
-            LinearGradient(colors: [Color.black, Color(red: 35/255, green: 0, blue: 50/255).opacity(0.9)], startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea()
-        )
+        // This pushes the VStack to the edges of the screen.
+        .ignoresSafeArea()
         .foregroundColor(.white)
-        .ignoresSafeArea(.keyboard) // This ensures the entire view, including the overlaid nav bar, ignores the keyboard
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 }
 
@@ -118,8 +91,6 @@ struct GameSection: View {
     }
 }
 
-
-// MARK: - CORRECT GameCard (Full-width banner)
 struct GameCard: View {
     let game: Game
 
@@ -152,8 +123,6 @@ struct GameCard: View {
     }
 }
 
-
-
 struct SplashScreen: View {
     @State private var scale: CGFloat = 0.8; @State private var opacity: Double = 0.0; @State private var rotation: Double = 0.0
     var body: some View {
@@ -170,6 +139,7 @@ struct SplashScreen: View {
     }
 }
 
+// MARK: - Final TopUserBar
 struct TopUserBar: View {
     @Binding var username: String; @Binding var money: Int; @Binding var gems: Int
     var body: some View {
@@ -177,8 +147,13 @@ struct TopUserBar: View {
             HStack(spacing: 12) {
                 Circle().fill(Color.purple.opacity(0.6)).frame(width: 50, height: 50).overlay(Text(username.isEmpty ? "?" : String(username.prefix(1)).uppercased()).font(.title2).bold().foregroundColor(.white))
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(username).font(.headline).bold(); Text("Level 7").font(.footnote).bold().foregroundColor(.gray)
-                    ZStack(alignment: .leading) { Capsule().fill(Color.gray.opacity(0.3)).frame(height: 8); Capsule().fill(Color.green).frame(width: 80, height: 8) }.frame(width: 100)
+                    // THE FIX for the wrapping name is here:
+                    Text(username)
+                        .font(.headline).bold()
+                        .lineLimit(1) // Ensure it stays on one line
+                        .minimumScaleFactor(0.8) // Allow font to shrink to 80% if needed
+                    
+                    Text("Level 7").font(.footnote).bold().foregroundColor(.gray)
                 }
             }
             Spacer()
@@ -187,11 +162,15 @@ struct TopUserBar: View {
                 CurrencyDisplay(value: gems, icon: "diamond.fill", color: .cyan)
                 Button { vibrate() } label: { Image(systemName: "bell.fill").font(.title3).padding(8).background(Circle().fill(Color.black.opacity(0.2))) }
             }
-        }.padding().background(Color.black)
+        }
+        .padding(.horizontal)
+        // Add top padding to move the content down from the status bar
+        .padding(.top, 45)
+        .padding(.bottom, 10)
+        .background(.black)
     }
 }
 
-// **THE FIX IS HERE**
 struct CurrencyDisplay: View {
     let value: Int; let icon: String; let color: Color
     var body: some View {
@@ -199,8 +178,6 @@ struct CurrencyDisplay: View {
             Image(systemName: icon).foregroundColor(color)
             Text(formatNumber(value))
                 .fontWeight(.semibold)
-                // This tells the text to take exactly the space it needs horizontally
-                // preventing it from being truncated.
                 .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.vertical, 8)
@@ -223,6 +200,7 @@ struct EliteBanner: View {
     }
 }
 
+// MARK: - Final BottomNavBar
 struct BottomNavBar: View {
     @Binding var currentScreen: Screen
     var body: some View {
@@ -239,7 +217,12 @@ struct BottomNavBar: View {
              Button(action: { /* Set state for Shop */ }) {
                 NavItem(title: "Shop", icon: "bag.fill", isSelected: false)
             }
-        }.padding([.top, .horizontal]).padding(.bottom, 25).background(Color.black)
+        }
+        .padding(.top, 15)
+        // Add bottom padding to move the content up from the home indicator
+        .padding(.bottom, 30)
+        .padding(.horizontal)
+        .background(.black)
     }
 }
 
@@ -249,7 +232,9 @@ struct NavItem: View {
         VStack(spacing: 4) {
             Image(systemName: icon).font(.title2).foregroundColor(isSelected ? .purple : .white.opacity(0.7))
             Text(title).font(.caption).foregroundColor(isSelected ? .purple : .white.opacity(0.7))
-        }.frame(maxWidth: .infinity).padding(.vertical, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
     }
 }
 

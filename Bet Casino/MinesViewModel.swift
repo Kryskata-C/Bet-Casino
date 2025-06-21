@@ -1,196 +1,307 @@
 import SwiftUI
 import Combine
-import UIKit // Import UIKit for UIImpactFeedbackGenerator
 
-// MARK: - Game Logic & Data Models
-
+// MARK: - Data Models
+// Define the data structures for the game here.
+// By placing Tile here, any other file that imports this view model can use it.
 struct Tile: Identifiable {
     let id = UUID()
     var isFlipped: Bool = false
     var isBomb: Bool = false
-    var hasShine: Bool = false // For visual sparkle on safe tiles
+    var hasShine: Bool = false
+    var wasLosingBomb: Bool = false
 }
 
-class MinesViewModel: ObservableObject {
-    @Published var tiles: [Tile] = []
-    @Published var mineCount: Double = 3.0
-    @Published var betAmount: String = "" // Remains String for TextField binding
-    @Published var gameState: GameState = .idle // .idle, .playing, .gameOver
-    @Published var profit: Double = 0.0 // Profit can still be fractional
-    @Published var currentMultiplier: Double = 1.0
-    @Published var winStreak: Int = 0
-    @Published var streakProfit: Double = 0.0
-    @Published var streakIntensity: Double = 0.0 // Drives the fire effect!
-    @Published var userMoney: Int = 0 // User's current money
+enum BettingMode {
+    case manual, auto
+}
 
+// MARK: - ViewModel
+class MinesViewModel: ObservableObject {
+    // Game State
+    @Published var tiles: [Tile] = []
+    @Published var gameState: GameState = .idle
+    @Published var bettingMode: BettingMode = .manual
+
+    // Bet Properties
+    @Published var mineCount: Double = 3.0
+    @Published var betAmount: String = ""
+    @Published var profit: Double = 0.0
+    @Published var currentMultiplier: Double = 1.0
+
+    // Auto Bet Properties
+    @Published var isAutoBetting: Bool = false
+    @Published var numberOfBets: String = "10"
+    @Published var autoBetSelection: Set<Int> = []
+    @Published var currentBetCount: Int = 0
+    @Published var autoRunProfit: Double = 0.0
+
+    // Streak Properties
+    @Published var winStreak: Int = 0
+    @Published var streakBonusMultiplier: Double = 1.0
+    
+    // Private Properties
+    private var sessionManager: SessionManager
     private var bombIndexes: Set<Int> = []
-    private var selectedTiles: Set<Int> = []
-    var currentUserEmail: String? // Changed to var so MinesView can access it for saving user data via its own functions
+    public var selectedTiles: Set<Int> = []
+    private var resetGameCancellable: AnyCancellable?
+    private var autoBetTask: Task<Void, Never>?
 
     let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 5)
-    let totalTiles = 25
+    let totalTiles = 25.0
 
-    enum GameState {
-        case idle, playing, gameOver
+    enum GameState { case idle, playing, autoSetup, autoPlaying, gameOver }
+
+    init(sessionManager: SessionManager) {
+        self.sessionManager = sessionManager
+        self.resetGame()
+    }
+    
+    deinit {
+        stopAutoBet()
     }
 
-    init() {
-        resetGame()
-    }
-
-    // Call this from the view to set the user's email
-    func setupUser(email: String, initialMoney: Int) {
-        self.currentUserEmail = email
-        self.userMoney = initialMoney
-        loadUserMoney() // Load the actual money from UserDefaults
-    }
-
-    // Loads user money from UserDefaults
-    func loadUserMoney() {
-        if let email = currentUserEmail,
-           let savedData = UserDefaults.standard.dictionary(forKey: email) as? [String: Any],
-           let money = savedData["money"] as? Int {
-            self.userMoney = money
-        } else {
-            self.userMoney = 25000 // A default value if user data isn't found
-            print("DEBUG: User money not found in UserDefaults for \(currentUserEmail ?? "nil"). Setting to default.")
-        }
-    }
-
-    // Saves user money to UserDefaults
-    private func saveUserMoney() {
-        if let email = currentUserEmail {
-            var userData = UserDefaults.standard.dictionary(forKey: email) as? [String: Any] ?? [:]
-            userData["money"] = userMoney
-            UserDefaults.standard.set(userData, forKey: email)
-            print("DEBUG: Saved user money (\(userMoney)) for \(email).")
-        }
-    }
-
+    // MARK: - Game Logic
     func startGame() {
-        // Ensure bet amount is valid and user has enough money
-        guard let bet = Int(betAmount), bet > 0 else { // Parse as Int
-            print("DEBUG: Invalid bet amount (must be an integer greater than 0).")
-            return
-        }
-        guard userMoney >= bet else { // Compare Int with Int
-            print("DEBUG: Insufficient funds. Current money: \(userMoney), Bet: \(bet).")
-            return
-        }
-
-        userMoney -= bet // Deduct bet as Int
-        saveUserMoney()
-        profit = 0.0 // Reset profit for new game
-        currentMultiplier = 1.0 // Reset multiplier
-
-        resetGame() // Reset the board
+        guard let bet = Int(betAmount), bet > 0, bet <= sessionManager.money else { return }
+        resetGameCancellable?.cancel()
+        
+        sessionManager.money -= bet
+        sessionManager.betsPlaced += 1
+        
+        resetBoard()
         gameState = .playing
         bombIndexes = generateBombs(count: Int(mineCount))
-
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-        print("DEBUG: Game started with bet: \(bet), mines: \(Int(mineCount)). Current money: \(userMoney)")
     }
 
     func tileTapped(_ index: Int) {
-        guard gameState == .playing, !tiles[index].isFlipped else { return }
-
-        selectedTiles.insert(index)
-        tiles[index].isFlipped = true
-
-        if bombIndexes.contains(index) {
-            tiles[index].isBomb = true
-            // If bomb hit, profit is just the negative of the bet (loss)
-            profit = -Double(Int(betAmount) ?? 0) // Cast Int bet to Double for profit display
-            endGame(won: false)
-            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-            print("DEBUG: Bomb hit at index \(index). Game Over (Lost).")
-        } else {
-            tiles[index].hasShine = true
-            currentMultiplier = calculateMultiplier()
-            profit = Double(Int(betAmount) ?? 0) * currentMultiplier // Cast Int bet to Double for profit calculation
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            print("DEBUG: Safe tile tapped at index \(index). Current multiplier: \(currentMultiplier), Current return: \(profit).")
-
-            if selectedTiles.filter({ !bombIndexes.contains($0) }).count == (totalTiles - bombIndexes.count) {
-                endGame(won: true)
-                print("DEBUG: All safe tiles revealed. Game Over (Won).")
+        switch gameState {
+        case .playing:
+            guard !tiles[index].isFlipped else { return }
+            
+            tiles[index].isFlipped = true
+            if bombIndexes.contains(index) {
+                tiles[index].isBomb = true
+                tiles[index].wasLosingBomb = true
+                endGame(won: false)
+            } else {
+                selectedTiles.insert(index)
+                tiles[index].hasShine = true
+                currentMultiplier = calculateManualMultiplier()
+                profit = (Double(betAmount) ?? 0.0) * (currentMultiplier - 1.0)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                if Double(selectedTiles.count) == totalTiles - Double(bombIndexes.count) {
+                    endGame(won: true)
+                }
             }
+        case .autoSetup:
+             toggleAutoBetTile(index)
+        default:
+            return
         }
     }
-
+    
     func cashout() {
-        guard gameState == .playing else { return }
+        guard gameState == .playing, !selectedTiles.isEmpty else { return }
         endGame(won: true)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        print("DEBUG: Cashed out. Final profit: \(profit).")
     }
 
     private func endGame(won: Bool) {
+        guard gameState == .playing else { return }
         gameState = .gameOver
+        let bet = Double(betAmount) ?? 0.0
+
         if won {
-            userMoney += Int(profit) // Add the profit (total return) to user's money as Int
-        }
-        saveUserMoney()
-
-        for i in bombIndexes {
-            tiles[i].isFlipped = true
-            tiles[i].isBomb = true
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            if self.gameState == .gameOver {
-                self.gameState = .idle
+            winStreak += 1
+            let streakBonus = calculateStreakBonus(tilesUncovered: selectedTiles.count)
+            streakBonusMultiplier = streakBonus
+            
+            let finalMultiplier = currentMultiplier * streakBonus
+            let finalWinnings = bet * finalMultiplier
+            let roundProfit = finalWinnings - bet
+            
+            self.profit = roundProfit
+            
+            let winningsInt = Int(finalWinnings.rounded())
+            sessionManager.money += winningsInt
+            sessionManager.totalMoneyWon += winningsInt
+        } else {
+            self.profit = -bet
+            resetStreak()
+            for i in bombIndexes where !tiles[i].isFlipped {
+                tiles[i].isFlipped = true
+                tiles[i].isBomb = true
             }
         }
+        
+        sessionManager.saveData()
+        
+        resetGameCancellable = Just(()).delay(for: .seconds(2), scheduler: DispatchQueue.main).sink { [weak self] _ in
+            self?.resetGame()
+        }
     }
-
+    
     func resetGame() {
-        tiles = Array(repeating: Tile(), count: totalTiles)
+        resetGameCancellable?.cancel()
+        resetBoard()
+        if bettingMode == .manual {
+             autoBetSelection.removeAll()
+             gameState = .idle
+        } else {
+             gameState = .autoSetup
+        }
+    }
+    
+    func resetBoard() {
+        tiles = Array(repeating: Tile(), count: Int(totalTiles))
         selectedTiles.removeAll()
         bombIndexes.removeAll()
         profit = 0.0
         currentMultiplier = 1.0
-        gameState = .idle
-        betAmount = ""
+    }
+    
+    // MARK: - Auto Bet Logic
+    func switchBettingMode(to mode: BettingMode) {
+        stopAutoBet()
+        bettingMode = mode
+        resetGame()
+    }
+
+    func startAutoBet() {
+        guard let totalBets = Int(numberOfBets), totalBets > 0,
+              let bet = Int(betAmount), bet > 0 else { return }
+
+        isAutoBetting = true
+        gameState = .autoPlaying
+        currentBetCount = 0
+        autoRunProfit = 0
+        resetStreak()
+
+        autoBetTask = Task {
+            for i in 1...totalBets {
+                if Task.isCancelled { break }
+                
+                await MainActor.run { self.currentBetCount = i }
+                
+                guard sessionManager.money >= bet else {
+                    print("Insufficient funds, stopping auto-bet.")
+                    break
+                }
+                
+                await runAutoBetRound(bet: bet)
+                if Task.isCancelled { break }
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+            }
+            
+            await MainActor.run {
+                self.isAutoBetting = false
+                self.gameState = .autoSetup
+            }
+        }
+    }
+    
+    func stopAutoBet() {
+        autoBetTask?.cancel()
+        autoBetTask = nil
+        if gameState == .autoPlaying {
+            isAutoBetting = false
+            gameState = .autoSetup
+        }
+    }
+    
+    private func runAutoBetRound(bet: Int) async {
+        await MainActor.run {
+            self.resetBoard()
+            self.sessionManager.money -= bet
+            self.sessionManager.betsPlaced += 1
+            self.bombIndexes = generateBombs(count: Int(mineCount))
+        }
+
+        let multiplier = calculateAutoMultiplier()
+        let hitBomb = autoBetSelection.contains { bombIndexes.contains($0) }
+        var lastRoundProfit: Double
+
+        if hitBomb {
+            lastRoundProfit = -Double(bet)
+            await MainActor.run { resetStreak() }
+        } else {
+            let streakBonus = calculateStreakBonus(tilesUncovered: autoBetSelection.count)
+            let finalWinnings = (Double(bet) * multiplier) * streakBonus
+            lastRoundProfit = finalWinnings - Double(bet)
+                
+            await MainActor.run {
+                self.winStreak += 1
+                self.streakBonusMultiplier = streakBonus
+                let winningsInt = Int(finalWinnings.rounded())
+                self.sessionManager.money += winningsInt
+                self.sessionManager.totalMoneyWon += winningsInt
+            }
+        }
+
+        await MainActor.run {
+            withAnimation(.easeInOut) {
+                self.autoRunProfit += lastRoundProfit
+                for tileIndex in self.autoBetSelection {
+                    self.tiles[tileIndex].isFlipped = true
+                    if self.bombIndexes.contains(tileIndex) {
+                        self.tiles[tileIndex].isBomb = true
+                    }
+                }
+            }
+            self.sessionManager.saveData()
+        }
+    }
+
+    // MARK: - Helper & Calculation Functions
+    private func resetStreak() {
+        winStreak = 0
+        streakBonusMultiplier = 1.0
+    }
+    
+    private func toggleAutoBetTile(_ index: Int) {
+        if autoBetSelection.contains(index) {
+            autoBetSelection.remove(index)
+        } else {
+            autoBetSelection.insert(index)
+        }
     }
 
     private func generateBombs(count: Int) -> Set<Int> {
         var bombs = Set<Int>()
-        while bombs.count < count {
-            bombs.insert(Int.random(in: 0..<totalTiles))
-        }
+        while bombs.count < count { bombs.insert(Int.random(in: 0..<Int(totalTiles))) }
         return bombs
     }
-
-    private func calculateMultiplier() -> Double {
+    
+    func calculateManualMultiplier() -> Double {
         guard !bombIndexes.isEmpty else { return 1.0 }
-
-        let n = Double(totalTiles)
-        let m = Double(bombIndexes.count)
-        let k = Double(selectedTiles.filter({ !bombIndexes.contains($0) }).count) // Count of *safe* selected tiles
-
+        let n = totalTiles, m = Double(bombIndexes.count), k = Double(selectedTiles.count)
+        if k == 0 { return 1.0 }
         var calculatedMult = 1.0
-        for i in 0..<Int(k) {
-            calculatedMult *= (n - Double(i)) / (n - m - Double(i))
-        }
-
-        let houseEdge: Double = 0.98
-        return calculatedMult * houseEdge
+        for i in 0..<Int(k) { calculatedMult *= (n - m - Double(i)) / (n - Double(i)) }
+        return (1 / calculatedMult) * 0.98
     }
-    private func calculateStreakBonus() -> Double {
-            guard winStreak > 0 else { return 1.0 }
-            let streakFactor = log(Double(winStreak) + 1) * 0.25
-            let riskFactor = 1.0 + (mineCount / Double(totalTiles))
-            let bonus = 1.0 + (streakFactor * riskFactor)
-            return min(5.0, bonus)
-        }
+    
+    private func calculateAutoMultiplier() -> Double {
+        guard !bombIndexes.isEmpty else { return 1.0 }
+        let n = totalTiles, m = Double(bombIndexes.count), k = Double(autoBetSelection.count)
+        if k == 0 { return 1.0 }
+        var calculatedMult = 1.0
+        for i in 0..<Int(k) { calculatedMult *= (n - m - Double(i)) / (n - Double(i)) }
+        return (1 / calculatedMult) * 0.98
+    }
+    
+    func calculateStreakBonus(tilesUncovered: Int) -> Double {
+        guard winStreak > 0 else { return 1.0 }
+        guard mineCount < totalTiles else { return 1.0 }
 
-        private func updateStreakIntensity() {
-            let bet = Double(betAmount) ?? 1.0
-            let targetProfitForMaxFlame = bet * 50.0
-            guard targetProfitForMaxFlame > 0 else { streakIntensity = 0; return }
-            
-            let intensity = streakProfit / targetProfitForMaxFlame
-            self.streakIntensity = max(0, intensity)
-        }
+        let uncoveredRatio = Double(tilesUncovered) / (totalTiles - mineCount)
+        let mineDensity = mineCount / totalTiles
+        let baseRisk = uncoveredRatio * mineDensity
+        let streakPower = log(Double(winStreak) + 1) * 1.25
+        let rarityBonus = pow((1.0 + baseRisk), streakPower)
+        let dynamicCap = 1.0 + (mineDensity * 12.0)
+        return min(dynamicCap, max(1.0, rarityBonus))
+    }
 }

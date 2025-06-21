@@ -295,18 +295,18 @@ class MinesViewModel: ObservableObject {
     }
     
     func calculateStreakBonus(tilesUncovered: Int) -> Double {
+        let level = 1.0 
         guard winStreak > 0 else { return 1.0 }
-        guard mineCount < totalTiles else { return 1.0 }
-
         let uncoveredRatio = Double(tilesUncovered) / (totalTiles - mineCount)
         let mineDensity = mineCount / totalTiles
-        let baseRisk = uncoveredRatio * mineDensity
-        let streakPower = log(Double(winStreak) + 1) * 1.25
-        let rarityBonus = pow((1.0 + baseRisk), streakPower)
-        let dynamicCap = 1.0 + (mineDensity * 12.0)
-        return min(dynamicCap, max(1.0, rarityBonus))
+        let streakFactor = log(Double(winStreak) + 1) * 1.25
+        let levelMultiplier = pow(1.15, level)
+        let bonus = 1.0 + (uncoveredRatio * mineDensity * streakFactor * levelMultiplier)
+        return min(25.0, bonus)
     }
+
 }
+
 
 // MARK: - Main View
 struct MinesView: View {
@@ -321,57 +321,53 @@ struct MinesView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                LinearGradient(colors: [.black, Color(red: 35/255, green: 0, blue: 50/255).opacity(0.9)], startPoint: .top, endPoint: .bottom)
-                    .ignoresSafeArea()
+        ZStack {
+            LinearGradient(colors: [.black, Color(red: 35/255, green: 0, blue: 50/255).opacity(0.9)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: 15) {
-                        StatusHeaderView(viewModel: viewModel)
+            ScrollView {
+                VStack(spacing: 15) {
+                    StatusHeaderView(viewModel: viewModel)
+                    
+                    ZStack {
+                        GridView(viewModel: viewModel)
                         
-                        ZStack {
-                            GridView(viewModel: viewModel)
-                            
-                            if showStreakBonus {
-                                StreakBonusView(bonus: viewModel.streakBonusMultiplier)
-                                    .id(streakAnimationId)
-                            }
+                        if showStreakBonus {
+                            StreakBonusView(bonus: viewModel.streakBonusMultiplier)
+                                .id(streakAnimationId)
                         }
-                        
-                        ControlsView(viewModel: viewModel, focusedField: $focusedField)
                     }
-                    .padding(.horizontal)
-                    .padding(.top, geometry.safeAreaInsets.top + 10)
-                    .padding(.bottom, geometry.safeAreaInsets.bottom + 10)
+                    
+                    ControlsView(viewModel: viewModel, focusedField: $focusedField)
                 }
-                .ignoresSafeArea(edges: .bottom)
-
+                .padding()
             }
-            .foregroundColor(.white)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { focusedField = nil }
+            // The scaleEffect is now removed from here so it's not applied twice.
+        }
+        .foregroundColor(.white)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { focusedField = nil }
+            }
+        }
+        .onDisappear(perform: viewModel.stopAutoBet)
+        .onChange(of: viewModel.winStreak) { oldValue, newValue in
+            if newValue > oldValue && newValue > 0 {
+                streakAnimationId = UUID()
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
+                    showStreakBonus = true
                 }
-            }
-            .onDisappear(perform: viewModel.stopAutoBet)
-            .onChange(of: viewModel.winStreak) { oldValue, newValue in
-                if newValue > oldValue && newValue > 0 {
-                    streakAnimationId = UUID()
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
-                        showStreakBonus = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                        withAnimation(.easeOut) {
-                            showStreakBonus = false
-                        }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    withAnimation(.easeOut) {
+                        showStreakBonus = false
                     }
                 }
             }
         }
     }
 }
+
 
 // MARK: - Subviews
 struct StatusHeaderView: View {
