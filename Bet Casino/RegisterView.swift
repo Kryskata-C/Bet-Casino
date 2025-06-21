@@ -104,7 +104,7 @@ struct RegisterView: View {
                 "username": username,
                 "email": email.lowercased(),
                 "password": password,
-                "money": 250000,
+                "money": 2500000,
                 "gems": 10,
                 "level": 0,
                 "betsPlaced": 0,

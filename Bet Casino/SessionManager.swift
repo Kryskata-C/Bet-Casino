@@ -15,6 +15,9 @@ class SessionManager: ObservableObject {
     @Published var biggestWin: Int = 0
     @Published var minesBets: Int = 0
 
+    // --- Level Up Animation Properties ---
+    @Published var showLevelUpAnimation = false
+    @Published var newLevel: Int? = nil
     
     public var currentUserIdentifier: String?
     private let lastUserIdentifierKey = "lastUserIdentifier"
@@ -41,7 +44,7 @@ class SessionManager: ObservableObject {
             self.minesBets = userData["minesBets"] as? Int ?? 0
             
             // Recalculate level on load to ensure it's up to date
-            updateLevel()
+            updateLevel(isInitialLoad: true)
         }
         
         // This prevents the login screen from flashing for auto-logins.
@@ -86,8 +89,26 @@ class SessionManager: ObservableObject {
     // MARK: - Level Calculation
     
     /// Recalculates and updates the user's level based on their total money won.
-    private func updateLevel() {
-        self.level = calculateLevel(totalMoneyWon: Double(self.totalMoneyWon))
+    private func updateLevel(isInitialLoad: Bool = false) {
+        let oldLevel = self.level
+        let calculatedLevel = calculateLevel(totalMoneyWon: Double(self.totalMoneyWon))
+        
+        // Check if the level has increased
+        if calculatedLevel > oldLevel {
+            self.level = calculatedLevel
+            
+            // Do not show animation on the initial app load
+            if !isInitialLoad {
+                self.newLevel = calculatedLevel
+                // Use a short delay to ensure the main UI has processed other data updates
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.showLevelUpAnimation = true
+                }
+            }
+        } else {
+            // Ensure level is always accurate even if it hasn't increased
+            self.level = calculatedLevel
+        }
     }
     
     /// Calculates the player's level based on a logarithmic curve.

@@ -17,6 +17,9 @@ struct ContentView: View {
 }
 
 // MARK: - Main App Shell
+// ... (keep the rest of the file the same)
+
+// MARK: - Main App Shell
 struct MainCasinoView: View {
     @EnvironmentObject var session: SessionManager
 
@@ -45,12 +48,20 @@ struct MainCasinoView: View {
 
                 BottomNavBar(currentScreen: $session.currentScreen)
             }
+            
+            // --- UNIVERSAL LEVEL UP ANIMATION OVERLAY ---
+            if session.showLevelUpAnimation {
+                LevelUpAnimationView()
+                    .environmentObject(session)
+            }
         }
         .ignoresSafeArea()
         .foregroundColor(.white)
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 }
+
+// ... (keep the rest of the file the same)
 
 
 // MARK: - Home View Redesign
