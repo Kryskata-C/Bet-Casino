@@ -404,15 +404,12 @@ struct Game: Identifiable {
 
 let trendingGames: [Game] = [
     Game(name: "Mines", subtitle: "Uncover the gems", color: .purple, imageName: "mines_card_bg", icon: "hammer.fill"),
-    Game(name: "Plinko", subtitle: "Drop and win", color: .pink, imageName: "plinko_card_bg", icon: "circle.grid.3x3.fill")
 ]
 let biggestWinners: [Game] = [
-    Game(name: "Crash", subtitle: "Ride the multiplier", color: .yellow, imageName: "crash_card_bg", icon: "chart.line.uptrend.xyaxis")
+    
 ]
 let originals: [Game] = [
-    Game(name: "Towers", subtitle: "Climb to the top", color: .red, imageName: "towers_card_bg", icon: "building.columns.fill"), // Added Towers game
-    Game(name: "Blackjack", subtitle: "Classic card game", color: .cyan, imageName: "blackjack_card_bg", icon: "suit.club.fill"),
-    Game(name: "Slots", subtitle: "Spin the reels", color: .orange, imageName: "slots_card_bg", icon: "7.square.fill")
+    Game(name: "Towers", subtitle: "Climb to the top", color: .red, imageName: "towers_card_bg", icon: "building.columns.fill"),
 ]
 
 
