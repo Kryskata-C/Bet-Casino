@@ -7,6 +7,7 @@ enum Screen {
     case mines
     case towers
     case profile
+    case keno // Add this line
 }
 
 class SessionManager: ObservableObject {
@@ -23,11 +24,12 @@ class SessionManager: ObservableObject {
     @Published var biggestWin: Int = 0
     @Published var minesBets: Int = 0
     @Published var towersBets: Int = 0
+    @Published var kenoBets: Int = 0 // Add this line
     @Published var lastBetAmount: Int = 0
     
     // --- Game-Specific Persistent Data ---
     @Published var towersWinStreak: Int = 0
-    @Published var towersGameHistory: [Bool] = [] 
+    @Published var towersGameHistory: [Bool] = []
 
 
     // --- Level Up Animation Properties ---
@@ -56,6 +58,7 @@ class SessionManager: ObservableObject {
             self.biggestWin = userData["biggestWin"] as? Int ?? 0
             self.minesBets = userData["minesBets"] as? Int ?? 0
             self.towersBets = userData["towersBets"] as? Int ?? 0
+            self.kenoBets = userData["kenoBets"] as? Int ?? 0 // Add this line
             
             self.towersWinStreak = userData["towersWinStreak"] as? Int ?? 0
             self.towersGameHistory = userData["towersGameHistory"] as? [Bool] ?? []
@@ -86,6 +89,7 @@ class SessionManager: ObservableObject {
         userData["biggestWin"] = self.biggestWin
         userData["minesBets"] = self.minesBets
         userData["towersBets"] = self.towersBets
+        userData["kenoBets"] = self.kenoBets // Add this line
         
         userData["towersWinStreak"] = self.towersWinStreak
         userData["towersGameHistory"] = self.towersGameHistory

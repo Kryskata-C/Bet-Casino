@@ -22,15 +22,10 @@ class KenoViewModel: ObservableObject {
     @Published var currentMultiplier: Double = 0.0
 
     // MARK: - Payout Information
-    // FIX: Payout table is now MUCH more generous to make winning easier.
     let payoutTable: [Int: [Int: Double]] = [
-        1: [1: 2.5],
-        2: [1: 1.0, 2: 6.0],
-        3: [2: 1.5, 3: 15.0],
-        4: [2: 1.0, 3: 3.0, 4: 30.0],
-        5: [3: 1.5, 4: 5.0, 5: 75.0],
-        6: [3: 1.0, 4: 3.0, 5: 20.0, 6: 125.0],
-        7: [3: 1.0, 4: 2.5, 5: 8.0, 6: 40.0, 7: 300.0]
+        1: [1: 2.0], 2: [1: 0.5, 2: 5.0], 3: [2: 1.5, 3: 10.0], 4: [2: 1.0, 3: 2.5, 4: 20.0],
+        5: [3: 1.0, 4: 4.0, 5: 60.0], 6: [3: 0.5, 4: 2.0, 5: 12.0, 6: 100.0],
+        7: [3: 0.5, 4: 1.5, 5: 6.0, 6: 25.0, 7: 250.0]
     ]
     
     private var sessionManager: SessionManager
@@ -41,9 +36,14 @@ class KenoViewModel: ObservableObject {
     init(session: SessionManager) {
         self.sessionManager = session
     }
-    
+
+    // MARK: - Game Actions
     func toggleSelection(_ number: Int) {
         guard gameState == .betting else { return }
+        
+        // --- Haptic Feedback for tile selection ---
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        
         if selectedNumbers.contains(number) {
             selectedNumbers.remove(number)
             updateTileState(number, state: .none)
@@ -60,6 +60,9 @@ class KenoViewModel: ObservableObject {
         
         if gameState == .results { resetForNewRound() }
         
+        // --- Haptic Feedback for starting game ---
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+        
         KenoSoundManager.shared.playSound(sound: .start)
         sessionManager.money -= bet
         gameState = .drawing
@@ -75,6 +78,10 @@ class KenoViewModel: ObservableObject {
                 if let drawn = numbersToDraw.randomElement().flatMap({ num in numbersToDraw.removeAll(where: { $0 == num }); return num }) {
                     self.drawnNumbers.insert(drawn)
                     let isHit = self.selectedNumbers.contains(drawn)
+                    
+                    // --- Haptic Feedback for hit/miss ---
+                    UIImpactFeedbackGenerator(style: isHit ? .heavy : .light).impactOccurred()
+                    
                     KenoSoundManager.shared.playSound(sound: isHit ? .hit : .miss)
                     self.updateTileState(drawn, state: isHit ? .hit : .drawn)
                 }
@@ -91,6 +98,9 @@ class KenoViewModel: ObservableObject {
         self.profit = winnings - (Double(betAmount) ?? 0.0)
         
         if self.profit > 0 {
+            // --- Haptic Feedback for win ---
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            
             KenoSoundManager.shared.playSound(sound: .cashout)
             sessionManager.money += Int(winnings.rounded())
             showWinSummary = true

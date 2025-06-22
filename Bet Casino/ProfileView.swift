@@ -94,14 +94,14 @@ struct ProfileView: View {
                             .padding(.horizontal)
                         
                         LazyVGrid(columns: columns, spacing: 15) {
-                                                StatCardView(icon: "dollarsign.circle.fill", title: "Total Won", value: formatNumber(session.totalMoneyWon), color: .green)
-                                                StatCardView(icon: "dice.fill", title: "Total Bets", value: "\(session.betsPlaced)", color: .cyan)
-                                                StatCardView(icon: "hammer.fill", title: "Mines Bets", value: "\(session.minesBets)", color: .orange)
-                                                // Add the following line for Towers Bets
-                                                StatCardView(icon: "building.columns.fill", title: "Towers Bets", value: "\(session.towersBets)", color: .red)
-                                                StatCardView(icon: "star.fill", title: "Gems", value: "\(session.gems)", color: .purple)
-                                            }
-                                            .padding(.horizontal)
+                            StatCardView(icon: "dollarsign.circle.fill", title: "Total Won", value: formatNumber(session.totalMoneyWon), color: .green)
+                            StatCardView(icon: "dice.fill", title: "Total Bets", value: "\(session.betsPlaced)", color: .cyan)
+                            StatCardView(icon: "hammer.fill", title: "Mines Bets", value: "\(session.minesBets)", color: .orange)
+                            StatCardView(icon: "building.columns.fill", title: "Towers Bets", value: "\(session.towersBets)", color: .red)
+                            StatCardView(icon: "number.square.fill", title: "Keno Bets", value: "\(session.kenoBets)", color: .blue) // Add this line
+                            StatCardView(icon: "star.fill", title: "Gems", value: "\(session.gems)", color: .purple)
+                        }
+                        .padding(.horizontal)
                     }
 
                     // MARK: - Logout Button

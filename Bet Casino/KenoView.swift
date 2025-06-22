@@ -24,6 +24,24 @@ class KenoSoundManager {
     }
 }
 
+// MARK: - Reusable Components (Copied from TowersView for consistency)
+struct KenoStatusPill: View {
+    let title: String
+    var value: String
+    var color: Color = .purple
+    
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(title.uppercased()).font(.system(size: 10, weight: .bold)).foregroundColor(.gray)
+            Text(value).font(.system(size: 26, weight: .heavy, design: .rounded)).foregroundColor(color)
+                .contentTransition(.numericText()).animation(.spring(), value: value).shadow(color: color.opacity(0.7), radius: 6)
+        }
+        .padding(.horizontal).frame(minWidth: 120, minHeight: 60).background(.black.opacity(0.25))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.white.opacity(0.1), lineWidth: 1))
+    }
+}
+
 // MARK: - Static Background
 struct StaticKenoBackground: View {
     var body: some View {
@@ -48,28 +66,28 @@ struct KenoView: View {
     var body: some View {
         ZStack {
             StaticKenoBackground()
-            VStack(spacing: 0) {
-                KenoPayoutBarView(viewModel: viewModel).padding(.top)
+            VStack(spacing: 15) {
+                // --- NEW: Status Pills ---
+                HStack {
+                    KenoStatusPill(title: "Multiplier", value: String(format: "%.2fx", viewModel.currentMultiplier), color: .cyan)
+                    KenoStatusPill(
+                        title: "Profit",
+                        value: (viewModel.profit >= 0 ? "+" : "") + formatNumber(Int(viewModel.profit)),
+                        color: viewModel.profit > 0 ? .green : (viewModel.profit < 0 ? .red : .white)
+                    )
+                }
+                .padding(.top)
+
+                KenoPayoutBarView(viewModel: viewModel)
+                
                 ScrollView {
                     KenoBoardView(viewModel: viewModel).padding()
                 }
+                
                 KenoControlsView(viewModel: viewModel, isBetAmountFocused: $isBetAmountFocused)
             }
             .padding(.top, 40)
-            .blur(radius: viewModel.showWinSummary ? 10 : 0)
-
-            if viewModel.showWinSummary {
-                KenoWinSummaryView(
-                    multiplier: viewModel.currentMultiplier,
-                    winnings: viewModel.lastWinnings
-                )
-                .onTapGesture {
-                    viewModel.showWinSummary = false
-                }
-                .transition(.scale.combined(with: .opacity))
-            }
         }
-        .animation(.spring(), value: viewModel.showWinSummary)
         .foregroundColor(.white)
         .toolbar {
              ToolbarItemGroup(placement: .keyboard) {
@@ -77,44 +95,6 @@ struct KenoView: View {
                  Button("Done") { isBetAmountFocused = false }.fontWeight(.bold)
              }
          }
-    }
-}
-
-// MARK: - Win Summary Pop-up
-struct KenoWinSummaryView: View {
-    let multiplier: Double
-    let winnings: Double
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Text(String(format: "%.2fx", multiplier))
-                .font(.system(size: 48, weight: .heavy, design: .rounded))
-                .foregroundColor(.white)
-
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(.white.opacity(0.3))
-                .padding(.horizontal, 20)
-
-            HStack {
-                Text(formatNumber(Int(winnings)))
-                    .font(.system(size: 24, weight: .bold, design: .monospaced))
-                    .foregroundColor(.green)
-                Image(systemName: "bitcoinsign.circle.fill")
-                    .foregroundColor(.orange)
-                    .font(.title2)
-            }
-        }
-        .padding(.vertical, 20)
-        .padding(.horizontal)
-        .frame(minWidth: 240)
-        .background(Color(red: 40/255, green: 45/255, blue: 60/255))
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.green, lineWidth: 4)
-        )
-        .shadow(color: .green.opacity(0.5), radius: 20)
     }
 }
 
@@ -182,7 +162,6 @@ private struct KenoBoardView: View {
                         if viewModel.gameState == .results {
                             viewModel.fullReset()
                         }
-                        // FIX: Access the 'wrappedValue' of the binding to get the integer.
                         viewModel.toggleSelection(kenoNumber.wrappedValue.number)
                     }
             }
@@ -197,6 +176,11 @@ struct KenoTileView: View {
         ZStack {
             RoundedRectangle(cornerRadius: 10).fill(baseColor)
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(borderColor, lineWidth: stateIsActive ? 3 : 1))
+            
+            Text("\(number.number)")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+                .opacity(number.state == .none || number.state == .selected ? 1 : 0)
 
             ZStack {
                 if number.state == .hit {
