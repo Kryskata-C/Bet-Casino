@@ -300,7 +300,9 @@ class MinesViewModel: ObservableObject {
     }
     
     private func runAutoBetRound(bet: Int) async {
+        // Play the start sound for the round
         await MainActor.run {
+            SoundManager.shared.playSound(sound: .start)
             self.resetBoard()
             self.sessionManager.money -= bet
             self.sessionManager.betsPlaced += 1
@@ -315,7 +317,10 @@ class MinesViewModel: ObservableObject {
         if hitBomb {
             lastRoundProfit = -Double(bet)
             autoBetLosses += 1
-            await MainActor.run { resetStreak() }
+            await MainActor.run {
+                SoundManager.shared.playSound(sound: .bomb) // A bomb was hit, play bomb sound
+                resetStreak()
+            }
         } else {
             autoBetWins += 1
             let streakBonus = calculateStreakBonus(tilesUncovered: autoBetSelection.count)
@@ -323,6 +328,7 @@ class MinesViewModel: ObservableObject {
             lastRoundProfit = finalWinnings - Double(bet)
                 
             await MainActor.run {
+                SoundManager.shared.playSound(sound: .flip) // All tiles were safe, play flip sound
                 self.winStreak += 1
                 self.streakBonusMultiplier = streakBonus
                 
@@ -336,7 +342,7 @@ class MinesViewModel: ObservableObject {
                 }
             }
         }
-
+        
         // Trigger the tile flip animation for the auto-bet selection
         for tileIndex in self.autoBetSelection {
              await MainActor.run {
@@ -352,7 +358,28 @@ class MinesViewModel: ObservableObject {
             self.sessionManager.saveData()
         }
     }
+    
+    struct BetAmountVisualizer: View {
+        @Binding var betAmount: String
+        var body: some View {
+            HStack {
+                Text("Current Bet:")
+                    .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.gray)
 
+                Text(betAmount.isEmpty ? "0" : betAmount)
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+                    .contentTransition(.identity)
+
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(.black.opacity(0.4))
+            .clipShape(Capsule())
+        }
+    }
     // MARK: - Helper & Calculation Functions
     private func resetStreak() {
         winStreak = 0
@@ -487,11 +514,16 @@ struct MinesView: View {
         .foregroundColor(.white)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
+                if focusedField == .betAmount {
+                    BetAmountVisualizer(betAmount: $viewModel.betAmount)
+                    Spacer()
+                } else {
+                    Spacer()
+                }
                 Button("Done") { focusedField = nil }
+                    .fontWeight(.bold)
             }
-        }
-        .sheet(isPresented: $viewModel.showAutoBetSummary) {
+        }        .sheet(isPresented: $viewModel.showAutoBetSummary) {
             AutoBetSummaryView(viewModel: viewModel)
         }
         .onDisappear(perform: viewModel.stopAutoBet)
@@ -548,7 +580,7 @@ struct ManualStatusView: View {
     var body: some View {
         HStack(spacing: 10) {
             InfoPill(title: "Multiplier", value: String(format: "%.2fx", multiplier))
-            InfoPill(title: "Profit", value: String(format: "%@%.2f", profit >= 0 ? "+" : "", profit),
+            InfoPill(title: "Profit", value: (profit >= 0 ? "+" : "") + formatNumber(Int(profit)),
                      color: profit > 0 ? .green : (profit < 0 ? .red : .white))
             Spacer()
             if streak > 0 {
@@ -567,7 +599,7 @@ struct AutoStatusView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            InfoPill(title: "Profit on Run", value: String(format: "%@%.2f", profit >= 0 ? "+" : "", profit),
+            InfoPill(title: "Profit on Run", value: (profit >= 0 ? "+" : "") + formatNumber(Int(profit)),
                      color: profit > 0 ? .green : (profit < 0 ? .red : .white))
             Spacer()
             if streak > 0 {

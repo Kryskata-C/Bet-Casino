@@ -63,10 +63,13 @@ class TowersViewModel: ObservableObject {
 
     func startGame() {
         guard let bet = Int(betAmount), bet > 0, bet <= sessionManager.money else { return }
-        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-        resetGameCancellable?.cancel()
-        
-        sessionManager.money -= bet
+            
+            TowersSoundManager.shared.playSound(sound: .start) // <-- ADD THIS LINE
+            
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+            resetGameCancellable?.cancel()
+            
+            sessionManager.money -= bet
         sessionManager.betsPlaced += 1
         sessionManager.towersBets += 1
         

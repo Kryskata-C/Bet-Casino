@@ -8,7 +8,7 @@ class TowersSoundManager {
     private var audioPlayer: AVAudioPlayer?
 
     enum SoundOption: String {
-        // REPLACE THESE WITH YOUR ACTUAL FILENAMES
+        case start = "Mines Start.wav" 
         case safeTile = "Towers New Tile.wav"
         case bomb = "Mine Tile.wav"
         case cashout = "Mines Cashout.wav"
@@ -214,8 +214,8 @@ struct GameAreaView: View {
                                 }
                             }.id(row)
                         }
-                    }.padding()
-                }
+                    }.id(viewModel.gridID)
+                    .padding()                }
                 .onChange(of: viewModel.currentRow) {
                     withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
                         proxy.scrollTo(viewModel.currentRow, anchor: .center)
@@ -247,20 +247,44 @@ struct TowerTileView: View {
     @ObservedObject var viewModel: TowersViewModel
     let row: Int, col: Int
     @State private var showParticles = false
-    
-    private var isRevealed: Bool { viewModel.revealedTiles[row].contains(col) }
-    private var isSafe: Bool { viewModel.grid[row][col] }
-    private var isJackpot: Bool { viewModel.jackpotRow == row && viewModel.jackpotCol == col }
-    private var potentialWin: Double { (Double(viewModel.betAmount) ?? 0) * viewModel.multipliers[row] }
+
+    // --- SAFELY CHECKED COMPUTED PROPERTIES ---
+
+    private var isRevealed: Bool {
+        guard viewModel.revealedTiles.indices.contains(row) else { return false }
+        return viewModel.revealedTiles[row].contains(col)
+    }
+
+    private var isSafe: Bool {
+        guard viewModel.grid.indices.contains(row),
+              viewModel.grid[row].indices.contains(col) else {
+            return false // Return a default, non-crashing value
+        }
+        return viewModel.grid[row][col]
+    }
+
+    private var isJackpot: Bool {
+        return viewModel.jackpotRow == row && viewModel.jackpotCol == col
+    }
+
+    private var potentialWin: Double {
+        guard viewModel.multipliers.indices.contains(row) else { return 0 }
+        return (Double(viewModel.betAmount) ?? 0) * viewModel.multipliers[row]
+    }
+
     private var borderColor: Color {
+        guard viewModel.multipliers.indices.contains(row) else { return .purple }
         let multiplier = viewModel.multipliers[row]
-        if multiplier > 50 { return .yellow } else if multiplier > 10 { return .green }
-        else if multiplier > 5 { return .cyan } else { return .purple }
+        if multiplier > 50 { return .yellow }
+        else if multiplier > 10 { return .green }
+        else if multiplier > 5 { return .cyan }
+        else { return .purple }
     }
 
     var body: some View {
         ZStack {
             FlipView(isFlipped: .constant(isRevealed)) {
+                // Front View
                 ZStack {
                     RoundedRectangle(cornerRadius: 12).fill(.black.opacity(0.3))
                     RoundedRectangle(cornerRadius: 12).stroke(borderColor, lineWidth: 2).blur(radius: 3)
@@ -271,10 +295,14 @@ struct TowerTileView: View {
                             .font(.largeTitle)
                     }
                     
-                    Text(formatNumber(Int(potentialWin))).font(.system(size: 16, weight: .heavy, design: .rounded)).foregroundColor(.white.opacity(0.6))
+                    Text(formatNumber(Int(potentialWin)))
+                        .font(.system(size: 16, weight: .heavy, design: .rounded))
+                        .foregroundColor(.white.opacity(0.6))
                         .opacity(viewModel.gameState == .idle && !viewModel.betAmount.isEmpty && !viewModel.isDebugMode ? 1 : 0)
+
                 }.overlay(viewModel.currentRow == row && viewModel.gameState == .playing ? RoundedRectangle(cornerRadius: 12).stroke(Color.yellow, lineWidth: 4).blur(radius: 3) : nil)
             } back: {
+                // Back View
                 ZStack {
                     RoundedRectangle(cornerRadius: 12).fill(isSafe ? (isJackpot ? Color.yellow.opacity(0.5) : Color.green.opacity(0.4)) : Color.red.opacity(0.5))
                     if isSafe {
@@ -293,7 +321,15 @@ struct TowerTileView: View {
                 }
             }
         }
-        .frame(height: 65).onTapGesture { viewModel.tileTapped(row: row, col: col) }
+        .frame(height: 65)
+        .onTapGesture {
+             // Add a check here as well to be extra safe before triggering a tap
+            guard viewModel.grid.indices.contains(row),
+                  viewModel.grid[row].indices.contains(col) else {
+                return
+            }
+            viewModel.tileTapped(row: row, col: col)
+        }
         .onChange(of: isRevealed) { if isRevealed { showParticles = true } }
         .animation(.spring(response: 0.5, dampingFraction: 0.6), value: isRevealed)
     }
