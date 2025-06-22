@@ -21,6 +21,7 @@ class TowersViewModel: ObservableObject {
     @Published var triggerLossShake = 0
     @Published var triggerWinFlash = 0
     
+    // Debug property, now only modifiable in code.
     @Published var isDebugMode: Bool = true
 
     // MARK: - Bet Properties
@@ -117,7 +118,6 @@ class TowersViewModel: ObservableObject {
         gameState = .gameOver
         let bet = Double(betAmount) ?? 0.0
 
-        // Add game result to history
         sessionManager.towersGameHistory.append(won)
         if sessionManager.towersGameHistory.count > 10 {
             sessionManager.towersGameHistory.removeFirst()
@@ -158,15 +158,16 @@ class TowersViewModel: ObservableObject {
         self.resetGame(isNewGame: false)
     }
     
-    // BUG FIX: Reset streakBonusMultiplier to 1.0 here
     func resetGame(isNewGame: Bool) {
         if isNewGame {
             winStreak = 0
             sessionManager.towersWinStreak = 0
         }
         gameState = .idle; currentRow = 0; profit = 0.0; combo = 0; shouldSuggestCashout = false
-        streakBonusMultiplier = 1.0 // This fixes the display glitch
         revealedTiles = Array(repeating: [], count: 8); generateGrid()
+        
+        // BUG FIX: Recalculate streak bonus on reset to fix display glitch
+        self.streakBonusMultiplier = calculateStreakBonus()
     }
     
     private func updateMultiplier() {
@@ -174,7 +175,7 @@ class TowersViewModel: ObservableObject {
         var newMultiplier = multipliers[currentRow - 1]
         
         let streakBonus = calculateStreakBonus()
-        self.streakBonusMultiplier = streakBonus // Update the published property
+        self.streakBonusMultiplier = streakBonus
         newMultiplier *= streakBonus
         
         if combo >= 3 {
@@ -188,15 +189,12 @@ class TowersViewModel: ObservableObject {
         currentMultiplier = newMultiplier
         profit = (Double(betAmount) ?? 0.0) * (currentMultiplier - 1.0)
     }
-    
-    // NEW: Enhanced Streak Calculation
+
     private func calculateStreakBonus() -> Double {
         guard winStreak > 0 else { return 1.0 }
 
-        // 1. Base Streak Factor
-        let baseStreakFactor = 1.0 + (log(Double(winStreak) + 1) * 0.1) // Softer curve
+        let baseStreakFactor = 1.0 + (log(Double(winStreak) + 1) * 0.1)
 
-        // 2. Difficulty Modifier
         let difficultyMultiplier: Double
         switch riskLevel {
         case .easy: difficultyMultiplier = 1.0
@@ -204,15 +202,13 @@ class TowersViewModel: ObservableObject {
         case .hard: difficultyMultiplier = 1.3
         }
 
-        // 3. Mercy Bonus (based on recent losses)
         let recentLosses = sessionManager.towersGameHistory.filter { !$0 }.count
-        let mercyBonus = 1.0 + (Double(recentLosses) * 0.02) // 2% bonus per recent loss
+        let mercyBonus = 1.0 + (Double(recentLosses) * 0.02)
 
-        // Combine all factors and cap it
         let totalBonus = (baseStreakFactor * difficultyMultiplier * mercyBonus)
-        return min(totalBonus, 2.5) // Capped at a 2.5x bonus
+        return min(totalBonus, 2.5)
     }
-
+    
     private func checkCashoutSuggestion() {
         guard currentRow < grid.count, let bet = Double(betAmount), bet > 0 else {
             shouldSuggestCashout = false

@@ -95,7 +95,6 @@ struct TowersView: View {
     @State private var showWinFlash = false
     @State private var showLossFlash = false
     
-    // State for bonus text animations
     @State private var bonusTexts: [BonusTextItem] = []
 
     init(session: SessionManager) { _viewModel = StateObject(wrappedValue: TowersViewModel(sessionManager: session)) }
@@ -106,7 +105,6 @@ struct TowersView: View {
             
             GameAreaView(viewModel: viewModel)
             
-            // Overlays for flashes and bonus text
             if showWinFlash { Color.green.opacity(0.3).ignoresSafeArea().transition(.opacity) }
             if showLossFlash { Color.red.opacity(0.4).ignoresSafeArea().transition(.opacity) }
             
@@ -122,7 +120,7 @@ struct TowersView: View {
         .onChange(of: viewModel.bonusText) { newValue in
             if let newBonus = newValue {
                 addBonusText(text: newBonus.text, color: newBonus.color)
-                viewModel.bonusText = nil // Reset after consuming
+                viewModel.bonusText = nil
             }
         }
     }
@@ -130,7 +128,6 @@ struct TowersView: View {
     private func addBonusText(text: String, color: Color) {
         let newItem = BonusTextItem(text: text, color: color)
         bonusTexts.append(newItem)
-        // Automatically remove the text item after its animation finishes
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             bonusTexts.removeAll { $0.id == newItem.id }
         }
@@ -161,7 +158,11 @@ struct GameAreaView: View {
                             .transition(.opacity.combined(with: .scale))
                     }
                 }
-                TowersStatusPill(title: "Profit", value: String(format: "%@%.0f", viewModel.profit >= 0 ? "+" : "", viewModel.profit), color: viewModel.profit >= 0 ? .green : .red)
+                TowersStatusPill(
+                    title: "Profit",
+                    value: (viewModel.profit >= 0 ? "+" : "") + formatNumber(Int(viewModel.profit)),
+                    color: viewModel.profit >= 0 ? .green : .red
+                )
                 
                 if viewModel.winStreak > 1 {
                     TowersStatusPill(
@@ -231,12 +232,10 @@ struct TowerTileView: View {
     var body: some View {
         ZStack {
             FlipView(isFlipped: .constant(isRevealed)) {
-                // Front of the tile (unrevealed)
                 ZStack {
                     RoundedRectangle(cornerRadius: 12).fill(.black.opacity(0.3))
                     RoundedRectangle(cornerRadius: 12).stroke(borderColor, lineWidth: 2).blur(radius: 3)
                     
-                    // Show bomb location in debug mode
                     if viewModel.isDebugMode && !isSafe {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.red.opacity(0.6))
@@ -247,7 +246,6 @@ struct TowerTileView: View {
                         .opacity(viewModel.gameState == .idle && !viewModel.betAmount.isEmpty && !viewModel.isDebugMode ? 1 : 0)
                 }.overlay(viewModel.currentRow == row && viewModel.gameState == .playing ? RoundedRectangle(cornerRadius: 12).stroke(Color.yellow, lineWidth: 4).blur(radius: 3) : nil)
             } back: {
-                // Back of the tile (revealed)
                 ZStack {
                     RoundedRectangle(cornerRadius: 12).fill(isSafe ? (isJackpot ? Color.yellow.opacity(0.5) : Color.green.opacity(0.4)) : Color.red.opacity(0.5))
                     if isSafe {
@@ -303,11 +301,6 @@ struct TowersControlsView: View {
                 .background(Color.black.opacity(0.3))
                 .cornerRadius(12)
                 .focused($isBetAmountFocused)
-            
-            Toggle(isOn: $viewModel.isDebugMode.animation()) {
-                Text("Debug Mode")
-            }
-            .tint(.purple)
             
             Picker("Risk Level", selection: $viewModel.riskLevel.animation()) {
                 ForEach(TowersViewModel.RiskLevel.allCases, id: \.self) { Text($0.rawValue).tag($0) }
