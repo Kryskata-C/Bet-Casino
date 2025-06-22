@@ -1,10 +1,3 @@
-//
-//  AuthComponents.swift
-//  Bet Casino
-//
-//  Created by Christian Angelov on 21.06.25.
-//
-
 import SwiftUI
 
 // MARK: - Reusable Authentication Components
@@ -67,7 +60,19 @@ struct AuthButton: View {
     }
 }
 
-// MARK: - Helper Functions
+// MARK: - Helper Functions & Effects
+
 func vibrate(style: UINotificationFeedbackGenerator.FeedbackType) {
     UINotificationFeedbackGenerator().notificationOccurred(style)
+}
+
+// --- ADDED: This is now the single source of truth for ShakeEffect ---
+struct ShakeEffect: GeometryEffect {
+    var amount: CGFloat = 8
+    var shakesPerUnit = 3
+    var animatableData: CGFloat
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        ProjectionTransform(CGAffineTransform(translationX: amount * sin(animatableData * .pi * CGFloat(shakesPerUnit)), y: 0))
+    }
 }
