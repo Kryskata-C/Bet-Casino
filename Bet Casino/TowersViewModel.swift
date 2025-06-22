@@ -40,15 +40,15 @@ class TowersViewModel: ObservableObject {
     }
 
     func startGame() {
-        guard let bet = Int(betAmount), bet > 0, bet <= sessionManager.money else { return }
-        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-        resetGameCancellable?.cancel()
-        sessionManager.money -= bet
-        sessionManager.towersBets += 1
-        generateGrid()
-        gameState = .playing
-    }
-
+            guard let bet = Int(betAmount), bet > 0, bet <= sessionManager.money else { return }
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+            resetGameCancellable?.cancel()
+            sessionManager.money -= bet
+            sessionManager.betsPlaced += 1 
+            sessionManager.towersBets += 1
+            generateGrid()
+            gameState = .playing
+        }
     func tileTapped(row: Int, col: Int) {
         guard gameState == .playing, row == currentRow, !revealedTiles[row].contains(col) else { return }
         revealedTiles[row].append(col)
