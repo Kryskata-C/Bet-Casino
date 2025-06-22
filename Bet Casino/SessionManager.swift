@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 enum Screen {
     case home
@@ -23,6 +24,11 @@ class SessionManager: ObservableObject {
     @Published var minesBets: Int = 0
     @Published var towersBets: Int = 0
     @Published var lastBetAmount: Int = 0
+    
+    // --- Game-Specific Persistent Data ---
+    @Published var towersWinStreak: Int = 0
+    @Published var towersGameHistory: [Bool] = [] 
+
 
     // --- Level Up Animation Properties ---
     @Published var showLevelUpAnimation = false
@@ -51,6 +57,9 @@ class SessionManager: ObservableObject {
             self.minesBets = userData["minesBets"] as? Int ?? 0
             self.towersBets = userData["towersBets"] as? Int ?? 0
             
+            self.towersWinStreak = userData["towersWinStreak"] as? Int ?? 0
+            self.towersGameHistory = userData["towersGameHistory"] as? [Bool] ?? []
+            
             updateLevel(isInitialLoad: true)
         }
         
@@ -77,6 +86,9 @@ class SessionManager: ObservableObject {
         userData["biggestWin"] = self.biggestWin
         userData["minesBets"] = self.minesBets
         userData["towersBets"] = self.towersBets
+        
+        userData["towersWinStreak"] = self.towersWinStreak
+        userData["towersGameHistory"] = self.towersGameHistory
         
         UserDefaults.standard.set(userData, forKey: identifier)
         print("User data saved for identifier: \(identifier)")
