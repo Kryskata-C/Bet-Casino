@@ -22,7 +22,7 @@ class TowersViewModel: ObservableObject {
     @Published var triggerWinFlash = 0
     
     // Debug property, now only modifiable in code.
-    @Published var isDebugMode: Bool = true
+    @Published var isDebugMode: Bool = false
 
     // MARK: - Bet Properties
     @Published var riskLevel: RiskLevel = .medium {
@@ -79,6 +79,7 @@ class TowersViewModel: ObservableObject {
         revealedTiles[row].append(col)
         
         if grid[row][col] { // Safe tile
+            TowersSoundManager.shared.playSound(sound: .safeTile) // SOUND
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             combo += 1
             
@@ -101,6 +102,7 @@ class TowersViewModel: ObservableObject {
 
     func cashout() {
         guard gameState == .playing, currentRow > 0 else { return }
+        TowersSoundManager.shared.playSound(sound: .cashout) // SOUND
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         triggerWinFlash += 1
         
@@ -135,6 +137,7 @@ class TowersViewModel: ObservableObject {
             }
         } else {
             winStreak = 0
+            TowersSoundManager.shared.playSound(sound: .bomb) // SOUND
             UINotificationFeedbackGenerator().notificationOccurred(.error)
             triggerLossShake += 1
             self.profit = -bet

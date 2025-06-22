@@ -1,5 +1,34 @@
 import SwiftUI
 import Combine
+import AVFoundation
+
+// MARK: - Sound Manager
+class TowersSoundManager {
+    static let shared = TowersSoundManager()
+    private var audioPlayer: AVAudioPlayer?
+
+    enum SoundOption: String {
+        // REPLACE THESE WITH YOUR ACTUAL FILENAMES
+        case safeTile = "Towers New Tile.wav"
+        case bomb = "Mine Tile.wav"
+        case cashout = "Mines Cashout.wav"
+    }
+
+    func playSound(sound: SoundOption) {
+        guard let url = Bundle.main.url(forResource: sound.rawValue, withExtension: nil) else {
+            print("Could not find sound file: \(sound.rawValue)")
+            return
+        }
+
+        do {
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.play()
+        } catch {
+            print("Error playing sound: \(error.localizedDescription)")
+        }
+    }
+}
+
 
 // MARK: - Re-usable & Enhanced Components
 
