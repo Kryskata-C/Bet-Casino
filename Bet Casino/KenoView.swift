@@ -36,7 +36,7 @@ struct KenoStatusPill: View {
         VStack(spacing: 2) {
             Text(title.uppercased()).font(.system(size: 10, weight: .bold)).foregroundColor(.gray)
             Text(value).font(.system(size: 26, weight: .heavy, design: .rounded)).foregroundColor(color)
-                .contentTransition(.numericText()).animation(.spring(), value: value) // --- MODIFIED: Removed the .shadow() modifier from this line
+                .contentTransition(.numericText()).animation(.spring(), value: value)
         }
         .padding(.horizontal).frame(minWidth: 120, minHeight: 60).background(.black.opacity(0.25))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -44,7 +44,6 @@ struct KenoStatusPill: View {
     }
 }
 
-// --- ADDED: Floating Bonus Text View (inspired by Towers) ---
 struct KenoBonusTextView: View {
     let item: KenoBonusTextItem
     @State private var yOffset: CGFloat = 0
@@ -84,7 +83,7 @@ struct KenoView: View {
     @StateObject private var viewModel: KenoViewModel
     @FocusState private var isBetAmountFocused: Bool
     @State private var bonusTexts: [KenoBonusTextItem] = []
-    @State private var showBoostsSheet = false // --- NEW ---
+    @State private var showBoostsSheet = false
     
     init(session: SessionManager) {
         _viewModel = StateObject(wrappedValue: KenoViewModel(session: session))
@@ -109,7 +108,6 @@ struct KenoView: View {
                 .padding(.top)
                 .animation(.spring(), value: viewModel.winStreak)
                 
-                // --- NEW: Mercy Mode Banner ---
                 if viewModel.isMercyModeActive {
                     Text("Mercy Mode Active: +1 Extra Draw")
                         .font(.caption).bold().foregroundColor(.cyan)
@@ -149,7 +147,6 @@ struct KenoView: View {
                  }
              }
          }
-        // --- NEW: Boosts Sheet ---
         .sheet(isPresented: $showBoostsSheet) {
             BoostsSheetView(viewModel: viewModel)
         }
@@ -216,7 +213,6 @@ private struct KenoBoardView: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: 10) {
             ForEach($viewModel.gridNumbers) { kenoNumber in
-                // --- MODIFIED: Pass the entire viewModel into the tile ---
                 KenoTileView(number: kenoNumber, viewModel: viewModel)
                     .onTapGesture {
                         if viewModel.gameState == .results {
@@ -255,12 +251,10 @@ struct KenoTileView: View {
                     if number.isJackpot {
                         Image(systemName: "sparkles").font(.system(size: 40, weight: .bold))
                              .foregroundStyle(LinearGradient(colors: [.yellow, .orange], startPoint: .top, endPoint: .bottom))
-                             // --- MODIFIED: Removed the .shadow() modifier ---
                              .transition(.scale.combined(with: .opacity))
                     } else {
                         Image(systemName: "diamond.fill").font(.system(size: 28, weight: .bold))
                             .foregroundStyle(LinearGradient(colors: [.cyan, .white], startPoint: .top, endPoint: .bottom))
-                            // --- MODIFIED: Removed the .shadow() modifier ---
                             .transition(.scale.combined(with: .opacity))
                     }
                 } else if number.state == .drawn {
@@ -295,15 +289,17 @@ struct KenoTileView: View {
 private struct KenoControlsView: View {
     @ObservedObject var viewModel: KenoViewModel
     @FocusState.Binding var isBetAmountFocused: Bool
-    @Binding var showBoosts: Bool // ADD THIS
+    @Binding var showBoosts: Bool
     
     var body: some View {
         VStack(spacing: 12) {
-            // --- NEW: Active Boost Indicator ---
-            if let boost = viewModel.activeBoost {
-                Text("Active Boost: \(boost == .extraDraw ? "Extra Draw" : "Payout Insurance")")
+            // --- MODIFIED: Active Boost Indicator for multiple boosts ---
+            if !viewModel.activeBoosts.isEmpty {
+                let boostNames = viewModel.activeBoosts.map { $0.name }.joined(separator: ", ")
+                Text("Active Boosts: \(boostNames)")
                     .font(.caption).bold().foregroundColor(.green)
                     .padding(8).background(Color.green.opacity(0.2)).cornerRadius(10)
+                    .multilineTextAlignment(.center)
             }
             
             HStack(spacing: 12) {
@@ -316,18 +312,28 @@ private struct KenoControlsView: View {
                         .focused($isBetAmountFocused)
                 }
                 
-                // --- NEW: Boosts Button ---
+                // --- MODIFIED: Boosts Button with active count ---
                 Button { showBoosts = true } label: {
-                    VStack {
-                        Image(systemName: "star.circle.fill")
-                        Text("Boosts")
+                    ZStack(alignment: .topTrailing) {
+                        VStack {
+                            Image(systemName: "star.circle.fill")
+                            Text("Boosts")
+                        }
+                        if !viewModel.activeBoosts.isEmpty {
+                            Text("\(viewModel.activeBoosts.count)")
+                                .font(.caption2).bold()
+                                .foregroundColor(.black)
+                                .padding(5)
+                                .background(Circle().fill(Color.yellow))
+                                .offset(x: 5, y: -5)
+                        }
                     }
                     .font(.caption).bold().padding(10).frame(height: 60)
                     .background(Color.yellow.opacity(0.2)).cornerRadius(12)
                     .foregroundColor(.yellow)
                 }
-                .disabled(viewModel.gameState != .betting || viewModel.activeBoost != nil)
-                .opacity(viewModel.gameState != .betting || viewModel.activeBoost != nil ? 0.5 : 1.0)
+                .disabled(viewModel.gameState != .betting)
+                .opacity(viewModel.gameState != .betting ? 0.5 : 1.0)
             }
             
             Button(action: viewModel.startGame) {
@@ -343,33 +349,46 @@ private struct KenoControlsView: View {
         .padding(.horizontal).padding(.bottom, 5)
     }
 }
+// --- MODIFIED: Boosts Sheet to support multi-selection ---
 struct BoostsSheetView: View {
     @ObservedObject var viewModel: KenoViewModel
     @Environment(\.dismiss) var dismiss
     
-    let boosts: [KenoBoost] = [.extraDraw, .payoutInsurance]
-    
+    let boosts = KenoBoost.allCases
+
     var body: some View {
         ZStack {
             StaticKenoBackground()
             VStack(spacing: 20) {
-                Text("Gem Boosts")
-                    .font(.largeTitle).bold()
+                HStack {
+                    Text("Gem Boosts")
+                        .font(.largeTitle).bold()
+                    Spacer()
+                    HStack {
+                        Text("\(viewModel.sessionManager.gems)")
+                        Image(systemName: "diamond.fill").foregroundColor(.cyan)
+                    }.font(.title2)
+                }
                 
-                Text("Spend gems to get an advantage for one round.")
+                Text("Select one or more boosts to activate for the next round.")
                     .font(.headline).foregroundColor(.gray)
                 
                 ForEach(boosts, id: \.self) { boost in
+                    let isSelected = viewModel.activeBoosts.contains(boost)
                     Button {
-                        viewModel.activateBoost(boost)
-                        dismiss()
+                        viewModel.toggleBoost(boost)
                     } label: {
                         HStack {
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .font(.title2)
+                                .foregroundColor(isSelected ? .green : .gray)
+                            
                             VStack(alignment: .leading, spacing: 5) {
-                                Text(boost == .extraDraw ? "Extra Draw" : "Payout Insurance")
+                                Text(boost.name)
                                     .font(.title3).bold()
                                 Text(boost.description)
                                     .font(.caption).foregroundColor(.white.opacity(0.8))
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                             Spacer()
                             HStack {
@@ -379,21 +398,32 @@ struct BoostsSheetView: View {
                             .font(.headline).foregroundColor(.cyan)
                         }
                         .padding()
-                        .background(.black.opacity(0.3))
+                        .background(isSelected ? Color.green.opacity(0.2) : Color.black.opacity(0.3))
                         .cornerRadius(15)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 15)
+                                .stroke(isSelected ? Color.green : Color.clear, lineWidth: 2)
+                        )
                     }
-                    .disabled(viewModel.sessionManager.gems < boost.cost)
-                    .opacity(viewModel.sessionManager.gems < boost.cost ? 0.6 : 1.0)
+                    .disabled(!isSelected && viewModel.sessionManager.gems < boost.cost)
+                    .opacity(!isSelected && viewModel.sessionManager.gems < boost.cost ? 0.6 : 1.0)
                 }
                 
                 Spacer()
                 
-                Button("Close") { dismiss() }
-                    .font(.headline)
+                Button("Done") { dismiss() }
+                    .font(.headline).bold()
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.purple)
+                    .cornerRadius(12)
+
             }
             .padding()
         }
         .foregroundColor(.white)
+        .animation(.spring(), value: viewModel.activeBoosts)
+        .animation(.spring(), value: viewModel.sessionManager.gems)
     }
 }
 
@@ -401,6 +431,6 @@ struct BoostsSheetView: View {
 #Preview {
     let session = SessionManager()
     session.isLoggedIn = true
-    session.gems = 50 // Give some gems for preview
+    session.gems = 50
     return KenoView(session: session).environmentObject(session)
 }

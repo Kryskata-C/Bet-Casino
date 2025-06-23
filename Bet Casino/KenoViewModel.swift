@@ -9,21 +9,31 @@ struct KenoBonusTextItem: Identifiable, Equatable {
     let color: Color
 }
 
-// --- NEW: Enum for Gem-Powered Boosts ---
-enum KenoBoost {
-    case extraDraw, payoutInsurance
+// --- MODIFIED: A completely new set of creative and meaningful boosts ---
+enum KenoBoost: CaseIterable {
+    case highRoller, secondChance, gemJackpot
     
     var cost: Int {
         switch self {
-        case .extraDraw: return 10
-        case .payoutInsurance: return 5
+        case .highRoller: return 10
+        case .secondChance: return 15
+        case .gemJackpot: return 12
+        }
+    }
+    
+    var name: String {
+        switch self {
+        case .highRoller: return "High Roller"
+        case .secondChance: return "Second Chance"
+        case .gemJackpot: return "Gem Jackpot"
         }
     }
     
     var description: String {
         switch self {
-        case .extraDraw: return "Draw 10 numbers instead of 9 for one round."
-        case .payoutInsurance: return "If you win 0x, get 50% of your bet back."
+        case .highRoller: return "Dramatically increases payouts for 5+ hits, but you win nothing for less than 3 hits."
+        case .secondChance: return "If you win 0x on your bet, your original bet amount is instantly returned."
+        case .gemJackpot: return "For this round, every number you hit will also award you with 1 Gem."
         }
     }
 }
@@ -55,8 +65,8 @@ class KenoViewModel: ObservableObject {
     @Published var jackpotNumber: Int? = nil
     @Published var bonusText: KenoBonusTextItem? = nil
     
-    // --- NEW: Properties for new features ---
-    @Published var activeBoost: KenoBoost? = nil
+    // --- Properties for new features ---
+    @Published var activeBoosts: Set<KenoBoost> = []
     @Published var isMercyModeActive: Bool = false
     @Published var hotNumbers: Set<Int> = []
     @Published var coldNumbers: Set<Int> = []
@@ -64,10 +74,15 @@ class KenoViewModel: ObservableObject {
 
     // MARK: - Payout Information
     let payoutTable: [Int: [Int: Double]] = [
-        1: [1: 2.5], 2: [1: 0.5, 2: 6.0], 3: [1: 0.1, 2: 1.5, 3: 12.0], 4: [2: 1.0, 3: 3.0, 4: 25.0],
-        5: [2: 0.2, 3: 1.5, 4: 5.0, 5: 75.0], 6: [3: 0.5, 4: 2.5, 5: 15.0, 6: 120.0],
-        7: [3: 0.5, 4: 2.0, 5: 8.0, 6: 30.0, 7: 300.0]
+        1: [1: 2.5],
+        2: [1: 0.5, 2: 6.0],
+        3: [1: 0.1, 2: 1.8, 3: 15.0],
+        4: [2: 1.0, 3: 3.5, 4: 28.0],
+        5: [2: 0.2, 3: 1.6, 4: 5.5, 5: 80.0],
+        6: [3: 0.5, 4: 2.5, 5: 15.0, 6: 120.0],
+        7: [3: 0.5, 4: 2.2, 5: 9.0, 6: 35.0, 7: 325.0]
     ]
+
     
     public var sessionManager: SessionManager
     private var cancellables = Set<AnyCancellable>()
@@ -78,7 +93,6 @@ class KenoViewModel: ObservableObject {
         self.sessionManager = session
         self.winStreak = session.kenoWinStreak
         
-        // --- NEW: Initial setup for new features ---
         self.isMercyModeActive = session.kenoConsecutiveLosses >= 3
         generateLuckyNumbers()
         updateHotColdNumbers()
@@ -116,11 +130,9 @@ class KenoViewModel: ObservableObject {
         let potentialJackpotPool = Array(1...25).filter { !selectedNumbers.contains($0) }
         self.jackpotNumber = potentialJackpotPool.randomElement()
         
-        // --- NEW: Determine number of draws based on boosts/mercy ---
         var totalDraws = 9
         if isMercyModeActive { totalDraws += 1 }
-        if activeBoost == .extraDraw { totalDraws += 1 }
-
+        
         Timer.publish(every: 0.25, on: .main, in: .common)
             .autoconnect().prefix(totalDraws)
             .sink(receiveCompletion: { [weak self] _ in self?.endGame() },
@@ -145,34 +157,55 @@ class KenoViewModel: ObservableObject {
         
         let spotsPicked = selectedNumbers.count
         let spotsHit = hits.count
-        let baseMultiplier = payoutTable[spotsPicked]?[spotsHit] ?? 0.0
+        
+        var baseMultiplier = payoutTable[spotsPicked]?[spotsHit] ?? 0.0
+
+        // --- NEW: Apply "High Roller" boost effect ---
+        if activeBoosts.contains(.highRoller) {
+            if spotsHit < 3 {
+                baseMultiplier = 0 // No win for small hits
+            } else if spotsHit >= 5 {
+                baseMultiplier *= 1.5 // Big bonus for large hits
+                bonusText = KenoBonusTextItem(text: "High Roller Bonus!", color: .yellow)
+            }
+        }
 
         let riskBonus = calculateRiskFactorBonus()
         let streakBonus = calculateStreakBonus()
         let luckyBonus = calculateLuckyNumberBonus()
         
         currentMultiplier = baseMultiplier * riskBonus * streakBonus * luckyBonus
+        
+        // --- NEW: Apply "Second Chance" boost BEFORE calculating profit ---
+        if activeBoosts.contains(.secondChance) && currentMultiplier == 0 {
+            currentMultiplier = 1.0 // Return the bet
+            bonusText = KenoBonusTextItem(text: "Second Chance!", color: .green)
+        }
+
         let winnings = bet * currentMultiplier
         self.lastWinnings = winnings
         self.profit = winnings - bet
 
         if self.profit > 0 {
             winStreak += 1
-            sessionManager.kenoConsecutiveLosses = 0 // Reset losses on win
+            sessionManager.kenoConsecutiveLosses = 0
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             KenoSoundManager.shared.playSound(sound: .cashout)
             sessionManager.money += Int(winnings.rounded())
             showWinSummary = true
         } else {
             winStreak = 0
-            sessionManager.kenoConsecutiveLosses += 1 // Increment losses
-            
-            // --- NEW: Handle Payout Insurance ---
-            if activeBoost == .payoutInsurance {
-                let refund = Int(bet * 0.5)
-                sessionManager.money += refund
-                self.profit += Double(refund)
-                bonusText = KenoBonusTextItem(text: "Insurance! +\(refund)", color: .green)
+            if !(activeBoosts.contains(.secondChance) && winnings == bet) {
+                 sessionManager.kenoConsecutiveLosses += 1
+            }
+        }
+        
+        // --- NEW: Apply "Gem Jackpot" boost ---
+        if activeBoosts.contains(.gemJackpot) && !hits.isEmpty {
+            let gemsWon = hits.count
+            sessionManager.gems += gemsWon
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.bonusText = KenoBonusTextItem(text: "+\(gemsWon) GEMS! 💎", color: .cyan)
             }
         }
         
@@ -184,12 +217,11 @@ class KenoViewModel: ObservableObject {
             }
         }
         
-        // --- NEW: Update History & Reset Boosts ---
         sessionManager.kenoDrawHistory.append(contentsOf: drawnNumbers)
-        if sessionManager.kenoDrawHistory.count > 50 { // Keep history to last 50 draws
+        if sessionManager.kenoDrawHistory.count > 50 {
             sessionManager.kenoDrawHistory.removeFirst(sessionManager.kenoDrawHistory.count - 50)
         }
-        activeBoost = nil
+        activeBoosts.removeAll()
         
         sessionManager.kenoWinStreak = self.winStreak
         sessionManager.saveData()
@@ -203,7 +235,6 @@ class KenoViewModel: ObservableObject {
         drawnNumbers.removeAll(); hits.removeAll(); profit = 0; currentMultiplier = 0
         cancellables.forEach { $0.cancel() }
         
-        // --- NEW: Update for new features ---
         isMercyModeActive = sessionManager.kenoConsecutiveLosses >= 3
         generateLuckyNumbers()
         updateHotColdNumbers()
@@ -227,11 +258,15 @@ class KenoViewModel: ObservableObject {
         }
     }
     
-    // --- NEW: Functions for new features ---
-    func activateBoost(_ boost: KenoBoost) {
-        guard sessionManager.gems >= boost.cost else { return }
-        sessionManager.gems -= boost.cost
-        activeBoost = boost
+    func toggleBoost(_ boost: KenoBoost) {
+        if activeBoosts.contains(boost) {
+            activeBoosts.remove(boost)
+            sessionManager.gems += boost.cost
+        } else {
+            guard sessionManager.gems >= boost.cost else { return }
+            sessionManager.gems -= boost.cost
+            activeBoosts.insert(boost)
+        }
     }
     
     private func updateHotColdNumbers() {
@@ -257,7 +292,8 @@ class KenoViewModel: ObservableObject {
 
     private func generateLuckyNumbers() {
         luckyNumbers.removeAll()
-        while luckyNumbers.count < 2 { luckyNumbers.insert(Int.random(in: 1...25)) }
+        let luckyNumberCount = 2 // Keeping the base at 2
+        while luckyNumbers.count < luckyNumberCount { luckyNumbers.insert(Int.random(in: 1...25)) }
         for i in gridNumbers.indices {
             gridNumbers[i].isLucky = luckyNumbers.contains(gridNumbers[i].number)
         }
@@ -294,7 +330,7 @@ struct KenoNumber: Identifiable, Equatable {
     var state: State = .none
     var isLucky: Bool = false
     var isJackpot: Bool = false
-    var isHot: Bool = false   // ADD THIS
-    var isCold: Bool = false  // ADD THIS
+    var isHot: Bool = false
+    var isCold: Bool = false
     enum State { case none, selected, drawn, hit }
 }
