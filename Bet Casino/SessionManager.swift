@@ -1,3 +1,5 @@
+// Bet Casino/SessionManager.swift
+
 import Foundation
 import Combine
 import SwiftUI
@@ -29,7 +31,10 @@ class SessionManager: ObservableObject {
     
     // --- Game-Specific Persistent Data ---
     @Published var towersWinStreak: Int = 0
+    @Published var kenoWinStreak: Int = 0
     @Published var towersGameHistory: [Bool] = []
+    @Published var kenoConsecutiveLosses: Int = 0 // ADD THIS
+    @Published var kenoDrawHistory: [Int] = []   // ADD THIS
 
 
     // --- Level Up Animation Properties ---
@@ -61,7 +66,10 @@ class SessionManager: ObservableObject {
             self.kenoBets = userData["kenoBets"] as? Int ?? 0 // Add this line
             
             self.towersWinStreak = userData["towersWinStreak"] as? Int ?? 0
+            self.kenoWinStreak = userData["kenoWinStreak"] as? Int ?? 0
             self.towersGameHistory = userData["towersGameHistory"] as? [Bool] ?? []
+            self.kenoConsecutiveLosses = userData["kenoConsecutiveLosses"] as? Int ?? 0 // ADD THIS
+            self.kenoDrawHistory = userData["kenoDrawHistory"] as? [Int] ?? []         // ADD THIS
             
             updateLevel(isInitialLoad: true)
         }
@@ -92,7 +100,10 @@ class SessionManager: ObservableObject {
         userData["kenoBets"] = self.kenoBets // Add this line
         
         userData["towersWinStreak"] = self.towersWinStreak
+        userData["kenoWinStreak"] = self.kenoWinStreak
         userData["towersGameHistory"] = self.towersGameHistory
+        userData["kenoConsecutiveLosses"] = self.kenoConsecutiveLosses // ADD THIS
+        userData["kenoDrawHistory"] = self.kenoDrawHistory           // ADD THIS
         
         UserDefaults.standard.set(userData, forKey: identifier)
         print("User data saved for identifier: \(identifier)")
