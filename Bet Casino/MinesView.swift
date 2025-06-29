@@ -998,6 +998,7 @@ extension SessionManager {
         manager.username = "Kryska"
         manager.money = 250000
         manager.level = 100
+        manager.gems = 1000
         manager.currentScreen = .mines
         return manager
     }

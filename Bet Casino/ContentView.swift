@@ -13,6 +13,7 @@ struct ContentView: View {
     }
 }
 
+
 // MARK: - Main App Shell
 struct MainCasinoView: View {
     @EnvironmentObject var session: SessionManager
@@ -63,22 +64,35 @@ struct MainCasinoView: View {
 // MARK: - Home View Redesign
 struct HomeView: View {
     @State private var searchText = ""
-
-    var filteredTrendingGames: [Game] {
-        searchText.isEmpty ? trendingGames : trendingGames.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    @State private var selectedCategory = "Originals"
+    
+    let categories = ["Originals", "New", "Popular"]
+    var allGames: [Game] {
+        (originals + trendingGames + biggestWinners).filter {
+            searchText.isEmpty ? true : $0.name.localizedCaseInsensitiveContains(searchText)
+        }
     }
 
-    var filteredOriginals: [Game] {
-        searchText.isEmpty ? originals : originals.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-    }
-
-    var filteredBiggestWinners: [Game] {
-        searchText.isEmpty ? biggestWinners : biggestWinners.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    var filteredGames: [Game] {
+        switch selectedCategory {
+        case "New":
+            return allGames.filter { $0.isNew }
+        case "Popular":
+            return allGames.filter { $0.isHot }
+        case "Originals":
+            // Assuming 'originals' is the source array for this category
+            return originals.filter {
+                searchText.isEmpty ? true : $0.name.localizedCaseInsensitiveContains(searchText)
+            }
+        default:
+            return allGames
+        }
     }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 36) {
+            VStack(spacing: 24) {
+                // Header remains the same
                 VStack(spacing: 18) {
                     Text("Welcome Back")
                         .font(.system(size: 30, weight: .heavy, design: .rounded))
@@ -89,28 +103,54 @@ struct HomeView: View {
                 .padding(.top, 50)
                 .padding(.horizontal)
 
-                CarouselPromo()
-
                 EliteBanner()
+                
+                // Add the category chooser here
+                CategoryFilterChips(categories: categories, selection: $selectedCategory)
 
-                VStack(spacing: 40) {
-                    if !filteredTrendingGames.isEmpty {
-                        GameSection(title: "Trending Now", games: filteredTrendingGames)
-                    }
-                    if !filteredOriginals.isEmpty {
-                        GameSection(title: "Casino Originals", games: filteredOriginals)
-                    }
-                    if !filteredBiggestWinners.isEmpty {
-                        GameSection(title: "Biggest Winners", games: filteredBiggestWinners)
-                    }
+                // Replace the VStack of GameSections with a single section
+                if !filteredGames.isEmpty {
+                    GameSection(title: selectedCategory, games: filteredGames)
+                } else {
+                    Text("No games found for '\(searchText)'")
+                        .foregroundColor(.gray)
+                        .padding()
                 }
-                .padding(.bottom, 60)
             }
+            .padding(.bottom, 60)
         }
         .background(
             LinearGradient(colors: [Color.black, Color(red: 30/255, green: 0, blue: 50/255)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
         )
+    }
+}
+
+struct CategoryFilterChips: View {
+    let categories: [String]
+    @Binding var selection: String
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(categories, id: \.self) { category in
+                    Button(action: {
+                        withAnimation {
+                            selection = category
+                        }
+                    }) {
+                        Text(category)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(selection == category ? Color.purple : Color.black.opacity(0.3))
+                            .foregroundColor(.white)
+                            .cornerRadius(20)
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
     }
 }
 
@@ -132,6 +172,7 @@ struct CarouselPromo: View {
 }
 
 // MARK: - Game Section and Cards Redesign
+// MARK: - Game Section and Cards Redesign
 struct GameSection: View {
     let title: String
     let games: [Game]
@@ -145,26 +186,29 @@ struct GameSection: View {
                 .padding(.horizontal)
                 .foregroundStyle(LinearGradient(colors: [.white, .purple], startPoint: .leading, endPoint: .trailing))
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(games) { game in
-                        Button {
-                            withAnimation {
-                                if game.name == "Mines" {
-                                    session.currentScreen = .mines
-                                } else if game.name == "Towers" { // Navigation to Towers
-                                    session.currentScreen = .towers
-                                } else if game.name == "Keno" { // Add this
-                                    session.currentScreen = .keno
-                                }
+            // Use a TabView for a paged, snapping carousel effect
+            TabView {
+                ForEach(games) { game in
+                    Button {
+                        withAnimation {
+                            if game.name == "Mines" {
+                                session.currentScreen = .mines
+                            } else if game.name == "Towers" {
+                                session.currentScreen = .towers
+                            } else if game.name == "Keno" {
+                                session.currentScreen = .keno
                             }
-                        } label: {
-                            GameCard(game: game)
                         }
+                    } label: {
+                        GameCard(game: game)
                     }
+                    // Add horizontal padding to each card within the carousel
+                    .padding(.horizontal)
                 }
-                .padding(.horizontal)
             }
+            // Use PageTabViewStyle and set a height for the carousel
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+            .frame(height: 320) // Reduced height for smaller cards// A more controlled height for the carousel /
         }
     }
 }
@@ -174,51 +218,55 @@ struct GameCard: View {
     @State private var hasAppeared = false
 
     var body: some View {
-        ZStack {
-            if UIImage(named: game.imageName) != nil {
-                Image(game.imageName)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 170, height: 230)
-                    .clipped()
-            } else {
-                LinearGradient(colors: [game.color.opacity(0.8), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    .frame(width: 170, height: 230)
-            }
+        // The ZStack now only contains the overlay content.
+        ZStack(alignment: .bottomLeading) {
+            // Gradient for text readability
+            LinearGradient(colors: [.black.opacity(0.0), .black.opacity(0.8)], startPoint: .center, endPoint: .bottom)
+                .zIndex(1) // Ensure gradient is on top of the background
 
-            LinearGradient(colors: [Color.black.opacity(0.0), Color.black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
-
+            // Text content
             VStack(alignment: .leading, spacing: 6) {
                 Spacer()
                 Image(systemName: game.icon)
-                    .font(.title2)
+                    .font(.title)
                     .foregroundColor(game.color)
+                    .shadow(radius: 5)
 
                 Text(game.name)
-                    .font(.headline)
-                    .bold()
+                    .font(.title2)
+                    .fontWeight(.bold)
 
                 Text(game.subtitle)
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.75))
+                    .font(.headline)
+                    .foregroundColor(.white.opacity(0.8))
             }
-            .padding(12)
-            .frame(width: 170, height: 230, alignment: .bottomLeading)
+            .padding(20)
+            .zIndex(2) // Ensure text is on top of the gradient
         }
-        .background(Color.black.opacity(0.2))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 4)
+        // The background is now applied here, outside the main content ZStack.
+        // This is the key to fixing the scaling issue.
+        .background(
+            ZStack {
+                if UIImage(named: game.imageName) != nil {
+                    Image(game.imageName)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill) // The image fills the background space
+                } else {
+                    LinearGradient(colors: [game.color.opacity(0.8), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20)) // Clip the background to the card shape
+        .shadow(color: .black.opacity(0.4), radius: 8, y: 5)
         .scaleEffect(hasAppeared ? 1 : 0.95)
         .opacity(hasAppeared ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 hasAppeared = true
             }
         }
     }
 }
-
-
 // MARK: - Top User Bar Redesign
 struct TopUserBar: View {
     @EnvironmentObject var session: SessionManager
@@ -304,43 +352,6 @@ struct NavItem: View {
 }
 
 // MARK: - New and Helper Views
-struct SplashScreen: View {
-    @State private var scale: CGFloat = 0.8
-    @State private var opacity: Double = 0.0
-    @State private var rotation: Double = 0.0
-    
-    var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color.black, Color.purple.opacity(0.8)], startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea()
-            
-            VStack(spacing: 12) {
-                Text("BET CASINO")
-                    .font(.system(size: 40, weight: .heavy, design: .rounded))
-                    .foregroundStyle(LinearGradient(colors: [.white, .purple.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .shadow(color: .purple.opacity(0.7), radius: 15, x: 0, y: 5)
-                    .scaleEffect(scale)
-                    .opacity(opacity)
-                    .rotation3DEffect(.degrees(rotation), axis: (x: 0, y: 1, z: 0))
-                
-                Text("Powered by FakeCoin™")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
-                    .opacity(opacity * 0.8)
-            }
-            .onAppear {
-                withAnimation(.easeOut(duration: 1.5)) {
-                    scale = 1.0
-                    opacity = 1.0
-                }
-                withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
-                    rotation = 10
-                }
-            }
-        }
-    }
-}
-
 struct SearchBar: View {
     @Binding var text: String
     
@@ -372,23 +383,35 @@ struct CurrencyDisplay: View {
 }
 
 struct EliteBanner: View {
+    @State private var glow = false
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 20)
-                .fill(LinearGradient(colors: [Color.purple, .blue.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                .shadow(color: .purple.opacity(0.5), radius: 10)
-            
+                .fill(LinearGradient(colors: [Color.purple, Color.blue.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .shadow(color: glow ? .purple.opacity(0.6) : .clear, radius: 20)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
+                        glow.toggle()
+                    }
+                }
+
             HStack {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("ELITE PASS")
                         .font(.title2).bold()
+                        .foregroundStyle(.white)
+                        .scaleEffect(glow ? 1.05 : 1.0)
+                        .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: glow)
                     Text("Unlock exclusive bonuses, VIP support, and more.")
-                        .font(.caption).opacity(0.9)
+                        .font(.caption).foregroundColor(.white.opacity(0.9))
                 }
                 Spacer()
                 Image(systemName: "crown.fill")
                     .font(.system(size: 50))
-                    .foregroundColor(.yellow.opacity(0.9))
+                    .foregroundColor(.yellow)
+                    .rotationEffect(.degrees(glow ? 10 : -10))
+                    .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: glow)
             }
             .padding(25)
         }
@@ -397,24 +420,28 @@ struct EliteBanner: View {
     }
 }
 
+
+
 struct Game: Identifiable {
     let id = UUID()
     let name: String
     let subtitle: String
     let color: Color
-    let imageName: String // Image for the card background
-    let icon: String // Icon to display on the card
+    let imageName: String
+    let icon: String
+    // Add these two properties
+    var isNew: Bool = false
+    var isHot: Bool = false
 }
 
 let trendingGames: [Game] = [
-    Game(name: "Mines", subtitle: "Uncover the gems", color: .purple, imageName: "mines_card_bg", icon: "hammer.fill"),
-    ]
-let biggestWinners: [Game] = [
-    
+    Game(name: "Mines", subtitle: "Uncover the gems", color: .purple, imageName: "mines_card_bg", icon: "hammer.fill", isNew: true, isHot: false),
 ]
+let biggestWinners: [Game] = []
+
 let originals: [Game] = [
-    Game(name: "Towers", subtitle: "Climb to the top", color: .red, imageName: "towers_card_bg", icon: "building.columns.fill"),
-    Game(name: "Keno", subtitle: "Pick your numbers", color: .blue, imageName: "keno_card_bg", icon: "number.square.fill") // Add this line
+    Game(name: "Towers", subtitle: "Climb to the top", color: .red, imageName: "towers_card_bg", icon: "building.columns.fill", isNew: false, isHot: true),
+    Game(name: "Keno", subtitle: "Pick your numbers", color: .blue, imageName: "keno_card_bg", icon: "number.square.fill", isNew: false, isHot: false)
 ]
 
 

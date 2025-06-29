@@ -1,5 +1,44 @@
 import SwiftUI
 
+// The SplashScreen view is now defined in this file, resolving the scope issue.
+struct SplashScreen: View {
+    @State private var scale: CGFloat = 0.8
+    @State private var opacity: Double = 0.0
+    @State private var rotation: Double = 0.0
+    
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [Color.black, Color.purple.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 12) {
+                Text("BET CASINO")
+                    .font(.system(size: 40, weight: .heavy, design: .rounded))
+                    .foregroundStyle(LinearGradient(colors: [.white, .purple.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .shadow(color: .purple.opacity(0.7), radius: 15, x: 0, y: 5)
+                    .scaleEffect(scale)
+                    .opacity(opacity)
+                    .rotation3DEffect(.degrees(rotation), axis: (x: 0, y: 1, z: 0))
+                
+                Text("Powered by FakeCoin™")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
+                    .opacity(opacity * 0.8)
+            }
+            .onAppear {
+                withAnimation(.easeOut(duration: 1.5)) {
+                    scale = 1.0
+                    opacity = 1.0
+                }
+                withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+                    rotation = 10
+                }
+            }
+        }
+    }
+}
+
+
 @main
 struct BetCasinoApp: App {
     @StateObject private var session = SessionManager()
