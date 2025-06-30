@@ -28,6 +28,7 @@ class SessionManager: ObservableObject {
     @Published var towersBets: Int = 0
     @Published var kenoBets: Int = 0 // Add this line
     @Published var lastBetAmount: Int = 0
+    @Published var gameHistory: [GameHistoryEntry] = []
     
     // --- Game-Specific Persistent Data ---
     @Published var towersWinStreak: Int = 0
@@ -71,6 +72,12 @@ class SessionManager: ObservableObject {
             self.kenoConsecutiveLosses = userData["kenoConsecutiveLosses"] as? Int ?? 0 // ADD THIS
             self.kenoDrawHistory = userData["kenoDrawHistory"] as? [Int] ?? []         // ADD THIS
             
+            if let historyData = userData["gameHistory"] as? Data {
+                let decoder = JSONDecoder()
+                if let decodedHistory = try? decoder.decode([GameHistoryEntry].self, from: historyData) {
+                    self.gameHistory = decodedHistory
+                }
+            }
             updateLevel(isInitialLoad: true)
         }
         
@@ -116,16 +123,30 @@ class SessionManager: ObservableObject {
         userData["biggestWin"] = self.biggestWin
         userData["minesBets"] = self.minesBets
         userData["towersBets"] = self.towersBets
-        userData["kenoBets"] = self.kenoBets // Add this line
+        userData["kenoBets"] = self.kenoBets
         
         userData["towersWinStreak"] = self.towersWinStreak
         userData["kenoWinStreak"] = self.kenoWinStreak
         userData["towersGameHistory"] = self.towersGameHistory
-        userData["kenoConsecutiveLosses"] = self.kenoConsecutiveLosses // ADD THIS
-        userData["kenoDrawHistory"] = self.kenoDrawHistory           // ADD THIS
-        
+        userData["kenoConsecutiveLosses"] = self.kenoConsecutiveLosses
+        userData["kenoDrawHistory"] = self.kenoDrawHistory
+        let encoder = JSONEncoder()
+        if let encodedHistory = try? encoder.encode(self.gameHistory) {
+            userData["gameHistory"] = encodedHistory
+        }
         UserDefaults.standard.set(userData, forKey: identifier)
         print("User data saved for identifier: \(identifier)")
+    }
+    func addGameHistory(gameName: String, profit: Int, betAmount: Int) {
+        let newEntry = GameHistoryEntry(id: UUID(), gameName: gameName, profit: profit, betAmount: betAmount, timestamp: Date())
+
+        // Insert the new entry at the beginning
+        self.gameHistory.insert(newEntry, at: 0)
+
+        // Keep the history list to a maximum of 20 entries
+        if self.gameHistory.count > 20 {
+            self.gameHistory.removeLast()
+        }
     }
     
     func logout() {

@@ -30,7 +30,7 @@ struct ProfileView: View {
                     OverviewTabView().tag(ProfileTab.overview)
                     StatsTabView().tag(ProfileTab.stats)
                     HistoryTabView().tag(ProfileTab.history)
-                    SettingsTabView().tag(ProfileTab.settings) 
+                    SettingsTabView().tag(ProfileTab.settings)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 .animation(.spring(), value: selectedTab)
@@ -125,11 +125,57 @@ struct OverviewTabView: View {
         ScrollView {
             VStack(spacing: 25) {
                 TopPayoutView(amount: session.biggestWin)
-                RecentGamesView()
+                RecentGamesView(history: session.gameHistory)
                 AchievementsView()
             }
             .padding()
         }
+    }
+}
+struct GameHistoryEntry: Identifiable, Codable {
+    let id: UUID
+    let gameName: String
+    let profit: Int
+    let betAmount: Int
+    let timestamp: Date
+
+    // Helper to get the correct game icon
+    var iconName: String {
+        switch gameName {
+        case "Mines": return "hammer.fill"
+        case "Towers": return "building.columns.fill"
+        case "Keno": return "number.square.fill"
+        default: return "questionmark.diamond.fill"
+        }
+    }
+}
+struct GameHistoryRowView: View {
+    let entry: GameHistoryEntry
+
+    var body: some View {
+        HStack {
+            Image(systemName: entry.iconName)
+                .font(.title2)
+                .frame(width: 40)
+                .foregroundColor(entry.profit >= 0 ? .cyan : .red)
+
+            VStack(alignment: .leading) {
+                Text(entry.gameName)
+                    .fontWeight(.bold)
+                Text("Bet: \(formatNumber(entry.betAmount))")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+
+            Spacer()
+
+            Text( (entry.profit >= 0 ? "+" : "") + formatNumber(entry.profit) )
+                .fontWeight(.bold)
+                .foregroundColor(entry.profit >= 0 ? .green : .red)
+        }
+        .padding()
+        .background(.black.opacity(0.2))
+        .cornerRadius(15)
     }
 }
 struct SettingsTabView: View {
@@ -181,17 +227,30 @@ struct StatsTabView: View {
 }
 
 struct HistoryTabView: View {
+    @EnvironmentObject var session: SessionManager
+
     var body: some View {
-        VStack {
-            Spacer()
-            Text("Game History Coming Soon")
-                .font(.title2)
-                .foregroundColor(.gray)
-            Spacer()
+        ScrollView {
+            VStack(spacing: 12) {
+                if session.gameHistory.isEmpty {
+                    VStack {
+                        Spacer()
+                        Text("Play a game to see your history here.")
+                            .font(.title3)
+                            .foregroundColor(.gray)
+                            .padding(.top, 50)
+                        Spacer()
+                    }
+                } else {
+                    ForEach(session.gameHistory) { entry in
+                        GameHistoryRowView(entry: entry)
+                    }
+                }
+            }
+            .padding()
         }
     }
 }
-
 
 // MARK: - Refactored Components
 
@@ -231,19 +290,28 @@ struct TopPayoutView: View {
     }
 }
 
+// Replace the old RecentGamesView with this one
 struct RecentGamesView: View {
+    let history: [GameHistoryEntry]
+
     var body: some View {
         VStack(alignment: .leading) {
             Text("Recent Activity")
                 .font(.title2).bold()
                 .padding(.bottom, 5)
-            
-            Text("Your last played games will appear here.")
-                .foregroundColor(.gray)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(.black.opacity(0.2))
-                .cornerRadius(15)
+
+            if history.isEmpty {
+                Text("Play a game to see your history here.")
+                    .foregroundColor(.gray)
+                    .frame(maxWidth: .infinity, minHeight: 100)
+                    .background(.black.opacity(0.2))
+                    .cornerRadius(15)
+            } else {
+                // Show the last 3 games
+                ForEach(history.prefix(3)) { entry in
+                    GameHistoryRowView(entry: entry)
+                }
+            }
         }
     }
 }

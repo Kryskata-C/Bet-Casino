@@ -222,7 +222,7 @@ class KenoViewModel: ObservableObject {
             sessionManager.kenoDrawHistory.removeFirst(sessionManager.kenoDrawHistory.count - 50)
         }
         activeBoosts.removeAll()
-        
+        sessionManager.addGameHistory(gameName: "Keno", profit: Int(self.profit.rounded()), betAmount: Int(bet) ?? 0)
         sessionManager.kenoWinStreak = self.winStreak
         sessionManager.saveData()
         

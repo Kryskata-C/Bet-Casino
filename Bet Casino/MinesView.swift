@@ -213,7 +213,7 @@ class MinesViewModel: ObservableObject {
                 tiles[i].isBomb = true
             }
         }
-        
+        sessionManager.addGameHistory(gameName: "Mines", profit: Int(self.profit.rounded()), betAmount: Int(bet) ?? 0)
         sessionManager.saveData()
         
         resetGameCancellable = Just(()).delay(for: .seconds(2), scheduler: DispatchQueue.main).sink { [weak self] _ in

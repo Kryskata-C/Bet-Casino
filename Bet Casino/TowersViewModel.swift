@@ -152,7 +152,8 @@ class TowersViewModel: ObservableObject {
                 }
             }
         }
-        
+        let finalProfit = won ? (bet * currentMultiplier) - bet : -bet
+        sessionManager.addGameHistory(gameName: "Towers", profit: Int(finalProfit.rounded()), betAmount: Int(bet) ?? 0)
         sessionManager.towersWinStreak = self.winStreak
         sessionManager.saveData()
         
