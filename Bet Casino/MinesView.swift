@@ -995,7 +995,7 @@ extension SessionManager {
     static func prefilled() -> SessionManager {
         let manager = SessionManager()
         manager.isLoggedIn = true
-        manager.username = "Kryska"
+        manager.username = "Kryskata"
         manager.money = 250000
         manager.level = 100
         manager.gems = 1000

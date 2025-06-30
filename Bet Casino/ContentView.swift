@@ -94,13 +94,11 @@ struct HomeView: View {
             VStack(spacing: 24) {
                 // Header remains the same
                 VStack(spacing: 18) {
-                    Text("Welcome Back")
-                        .font(.system(size: 30, weight: .heavy, design: .rounded))
-                        .foregroundStyle(LinearGradient(colors: [.white, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    
 
                     SearchBar(text: $searchText)
                 }
-                .padding(.top, 50)
+                .padding(.top, 10)
                 .padding(.horizontal)
 
                 EliteBanner()
@@ -441,7 +439,9 @@ let biggestWinners: [Game] = []
 
 let originals: [Game] = [
     Game(name: "Towers", subtitle: "Climb to the top", color: .red, imageName: "towers_card_bg", icon: "building.columns.fill", isNew: false, isHot: true),
-    Game(name: "Keno", subtitle: "Pick your numbers", color: .blue, imageName: "keno_card_bg", icon: "number.square.fill", isNew: false, isHot: false)
+    Game(name: "Keno", subtitle: "Pick your numbers", color: .blue, imageName: "keno_card_bg", icon: "number.square.fill", isNew: false, isHot: false),
+    Game(name: "Mines", subtitle: "Uncover the gems", color: .purple, imageName: "mines_card_bg", icon: "hammer.fill", isNew: true, isHot: false),
+    
 ]
 
 
