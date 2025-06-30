@@ -19,7 +19,7 @@ struct ProfileView: View {
                 ProfileHeaderView(
                     username: session.username,
                     level: session.level,
-                    xpProgress: session.xpProgress,isVip: true // Now uses the dynamic calculation                    
+                    xpProgress: session.xpProgress,isVip: true // Now uses the dynamic calculation                    isVip: true // Example VIP status
                 )
                 .padding(.bottom, 20)
 
@@ -30,6 +30,7 @@ struct ProfileView: View {
                     OverviewTabView().tag(ProfileTab.overview)
                     StatsTabView().tag(ProfileTab.stats)
                     HistoryTabView().tag(ProfileTab.history)
+                    SettingsTabView().tag(ProfileTab.settings) 
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 .animation(.spring(), value: selectedTab)
@@ -96,6 +97,7 @@ enum ProfileTab: String, CaseIterable {
     case overview = "Overview"
     case stats = "Stats"
     case history = "History"
+    case settings = "Settings" // Add this line
 }
 
 struct TabSwitcherView: View {
@@ -130,7 +132,34 @@ struct OverviewTabView: View {
         }
     }
 }
+struct SettingsTabView: View {
+    @EnvironmentObject var session: SessionManager
+    @State private var soundEffects = true
+    @State private var hapticFeedback = true
 
+    var body: some View {
+        Form {
+            Section(header: Text("In-Game").foregroundColor(.gray)) {
+                Toggle("Sound Effects", isOn: $soundEffects)
+                Toggle("Haptic Feedback", isOn: $hapticFeedback)
+            }
+            .listRowBackground(Color.black.opacity(0.3))
+
+            Section(header: Text("Account").foregroundColor(.gray)) {
+                Button(action: {
+                    session.logout()
+                }) {
+                    Text("Logout")
+                        .fontWeight(.bold)
+                        .foregroundColor(.red)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+            }
+            .listRowBackground(Color.black.opacity(0.3))
+        }
+        .scrollContentBackground(.hidden) // Makes form background transparent
+    }
+}
 struct StatsTabView: View {
     @EnvironmentObject var session: SessionManager
     
