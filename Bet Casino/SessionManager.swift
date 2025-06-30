@@ -80,7 +80,26 @@ class SessionManager: ObservableObject {
        
         UserDefaults.standard.set(identifier, forKey: lastUserIdentifierKey)
     }
-    
+    var xpProgress: Double {
+        let currentLevelXP = xpForLevel(level)
+        let nextLevelXP = xpForLevel(level + 1)
+        
+        let xpInCurrentLevel = totalMoneyWon - currentLevelXP
+        let xpForNextLevel = nextLevelXP - currentLevelXP
+        
+        guard xpForNextLevel > 0 else { return 0 }
+        
+        return Double(xpInCurrentLevel) / Double(xpForNextLevel)
+    }
+
+    // Also add this helper function inside the SessionManager class
+    func xpForLevel(_ level: Int) -> Int {
+        guard level > 0 else { return 0 }
+        // This is the reverse of your calculateLevel formula
+        let xpBase = pow(10, Double(level) / 20.0) - 1
+        return Int(xpBase * 500_000.0)
+    }
+
     func saveData() {
         guard let identifier = currentUserIdentifier else { return }
         

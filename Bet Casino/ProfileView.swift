@@ -19,8 +19,7 @@ struct ProfileView: View {
                 ProfileHeaderView(
                     username: session.username,
                     level: session.level,
-                    xpProgress: 0.75, // Example progress
-                    isVip: true // Example VIP status
+                    xpProgress: session.xpProgress,isVip: true // Now uses the dynamic calculation                    
                 )
                 .padding(.bottom, 20)
 
