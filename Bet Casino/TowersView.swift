@@ -132,7 +132,9 @@ struct TowersView: View {
         ZStack {
             TowersAnimatedBackground()
             
-            GameAreaView(viewModel: viewModel)
+            ScrollView(showsIndicators: false) {
+                            GameAreaView(viewModel: viewModel)
+                        }
             
             if showWinFlash { Color.green.opacity(0.3).ignoresSafeArea().transition(.opacity) }
             if showLossFlash { Color.red.opacity(0.4).ignoresSafeArea().transition(.opacity) }
@@ -204,24 +206,19 @@ struct GameAreaView: View {
             .padding()
             .animation(.spring(), value: viewModel.winStreak)
 
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 12) {
-                        ForEach((0..<viewModel.grid.count).reversed(), id: \.self) { row in
-                            HStack(spacing: 12) {
-                                ForEach(Array(viewModel.grid[row].enumerated()), id: \.offset) { col, _ in
-                                    TowerTileView(viewModel: viewModel, row: row, col: col)
+            
+            LazyVStack(spacing: 12) {
+                            ForEach((0..<viewModel.grid.count).reversed(), id: \.self) { row in
+                                HStack(spacing: 12) {
+                                    ForEach(Array(viewModel.grid[row].enumerated()), id: \.offset) { col, _ in
+                                        TowerTileView(viewModel: viewModel, row: row, col: col)
+                                    }
                                 }
-                            }.id(row)
+                            }
                         }
-                    }.id(viewModel.gridID)
-                    .padding()                }
-                .onChange(of: viewModel.currentRow) {
-                    withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
-                        proxy.scrollTo(viewModel.currentRow, anchor: .center)
-                    }
-                }
-            }
+                        .id(viewModel.gridID)
+                        .padding()
+
             .transition(.opacity.animation(.easeInOut(duration: 0.4)))
             
             if viewModel.gameState == .idle { TowersControlsView(viewModel: viewModel, isBetAmountFocused: $isBetAmountFocused) }
