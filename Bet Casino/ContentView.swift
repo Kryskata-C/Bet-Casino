@@ -170,11 +170,14 @@ struct CarouselPromo: View {
 }
 
 // MARK: - Game Section and Cards Redesign
-// MARK: - Game Section and Cards Redesign
+
 struct GameSection: View {
     let title: String
     let games: [Game]
     @EnvironmentObject var session: SessionManager
+    
+    // --- NEW: A state variable to track the currently visible card ---
+    @State private var currentIndex: Int = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
@@ -184,29 +187,44 @@ struct GameSection: View {
                 .padding(.horizontal)
                 .foregroundStyle(LinearGradient(colors: [.white, .purple], startPoint: .leading, endPoint: .trailing))
 
-            // Use a TabView for a paged, snapping carousel effect
-            TabView {
-                ForEach(games) { game in
-                    Button {
-                        withAnimation {
-                            if game.name == "Mines" {
-                                session.currentScreen = .mines
-                            } else if game.name == "Towers" {
-                                session.currentScreen = .towers
-                            } else if game.name == "Keno" {
-                                session.currentScreen = .keno
+            // --- EDIT: The TabView is now wrapped in a VStack with the indicator ---
+            VStack {
+                // The TabView now updates the currentIndex when you swipe
+                TabView(selection: $currentIndex) {
+                    ForEach(games.indices, id: \.self) { index in
+                        let game = games[index]
+                        Button {
+                            withAnimation {
+                                if game.name == "Mines" {
+                                    session.currentScreen = .mines
+                                } else if game.name == "Towers" {
+                                    session.currentScreen = .towers
+                                } else if game.name == "Keno" {
+                                    session.currentScreen = .keno
+                                }
                             }
+                        } label: {
+                            GameCard(game: game)
                         }
-                    } label: {
-                        GameCard(game: game)
+                        .padding(.horizontal)
+                        .tag(index) // Tag each view with its index
                     }
-                    // Add horizontal padding to each card within the carousel
-                    .padding(.horizontal)
                 }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                .frame(height: 320)
+                
+                // --- NEW: This is the scroll indicator ---
+                HStack(spacing: 8) {
+                    ForEach(games.indices, id: \.self) { index in
+                        Circle()
+                            .fill(currentIndex == index ? Color.purple : Color.gray.opacity(0.5))
+                            .frame(width: 8, height: 8)
+                            .scaleEffect(currentIndex == index ? 1.2 : 1.0)
+                            .animation(.spring(), value: currentIndex)
+                    }
+                }
+                .padding(.top, 8) // Add some space above the dots
             }
-            // Use PageTabViewStyle and set a height for the carousel
-            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-            .frame(height: 320) // Reduced height for smaller cards// A more controlled height for the carousel /
         }
     }
 }
