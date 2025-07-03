@@ -34,7 +34,7 @@ struct PlinkoView: View {
                     PlinkoBoardView(viewModel: viewModel)
                     
                     MultiplierBucketsView(
-                        multipliers: viewModel.riskLevel.multipliers,
+                        multipliers: viewModel.riskLevel.multipliers(for: viewModel.pegRows),
                         highlightedIndex: $viewModel.lastHitMultiplierIndex
                     )
                     // Pushing the buckets up from the bottom to sit just below the pegs.
@@ -141,6 +141,12 @@ struct PlinkoControlsView: View {
                         Text(level.rawValue).tag(level)
                     }
                 }
+                Stepper("Rows: \(viewModel.pegRows)", value: $viewModel.pegRows, in: 7...13, step: 2)
+                    .padding(.horizontal)
+                    .background(Color.black.opacity(0.3))
+                    .cornerRadius(8)
+                    .foregroundColor(.white)
+
                 .pickerStyle(SegmentedPickerStyle())
                 .background(Color.black.opacity(0.3)).cornerRadius(8)
             }
@@ -173,7 +179,9 @@ struct MultiplierBucketsView: View {
         HStack(spacing: 2) {
             ForEach(Array(multipliers.enumerated()), id: \.offset) { index, multiplier in
                 Text(String(format: "%.1fx", multiplier))
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .font(.system(size: max(10, 18 - CGFloat(multipliers.count)), weight: .bold, design: .monospaced))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity) // Each bucket takes equal space
                     .padding(.vertical, 8)

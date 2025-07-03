@@ -41,16 +41,52 @@ enum PlinkoRiskLevel: String, CaseIterable {
     case medium = "Medium"
     case high = "High"
 
-    var multipliers: [Double] {
+    func multipliers(for rows: Int) -> [Double] {
         switch self {
         case .low:
-            return [10, 2.5, 1, 0.5, 0.2, 0.5, 1, 2.5, 10]
+            switch rows {
+            case 7: return [10, 2.5, 1, 0.5, 1, 2.5, 10]
+            case 9: return [10, 2.5, 1, 0.5, 0.2, 0.5, 1, 2.5, 10]
+            case 11: return [10, 2.5, 1, 0.5, 0.2, 0.2, 0.5, 1, 2.5, 10, 15]
+            case 13: return [15, 10, 2.5, 1, 0.5, 0.2, 0.1, 0.2, 0.5, 1, 2.5, 10, 15]
+            default: return Array(repeating: 0.1, count: rows + 1)
+            }
         case .medium:
-            return [25, 5, 1.5, 0.5, 0.1, 0.5, 1.5, 5, 25]
+            switch rows {
+            case 7: return [25, 5, 1.5, 0.5, 1.5, 5, 25]
+            case 9: return [25, 5, 1.5, 0.5, 0.1, 0.5, 1.5, 5, 25]
+            case 11: return [25, 10, 2, 1, 0.2, 0.1, 0.2, 1, 2, 10, 25]
+            case 13: return [50, 25, 10, 2.5, 1, 0.2, 0.1, 0.2, 1, 2.5, 10, 25, 50]
+            default: return Array(repeating: 0.1, count: rows + 1)
+            }
         case .high:
-            return [100, 10, 2, 0.2, 0.1, 0.2, 2, 10, 100]
+            switch rows {
+            case 7: return [100, 10, 2, 0.2, 2, 10, 100]
+            case 9: return [100, 10, 2, 0.2, 0.1, 0.2, 2, 10, 100]
+            case 11: return [150, 50, 10, 2.5, 0.2, 0.1, 0.2, 2.5, 10, 50, 150]
+            case 13: return [200, 100, 25, 5, 1, 0.2, 0.1, 0.2, 1, 5, 25, 100, 200]
+            default: return Array(repeating: 0.1, count: rows + 1)
+            }
         }
     }
+
+    private func scaleSymmetric(base: [Double], to count: Int) -> [Double] {
+        var pattern = base + base.dropLast().reversed()
+        while pattern.count < count {
+            pattern.insert(base.last!, at: 0)
+            pattern.append(base.last!)
+        }
+        if pattern.count > count {
+            let extra = pattern.count - count
+            let start = extra / 2
+            pattern = Array(pattern[start..<(start + count)])
+        }
+        return Array(pattern.reversed())
+    }
+
+
+
+
 }
 
 // MARK: - ViewModel
@@ -82,7 +118,10 @@ class PlinkoViewModel: ObservableObject {
             }
         }
     }
-    let pegRows = 8
+    @Published var pegRows: Int = 8 {
+        didSet { setupPegs() }
+    }
+
     
     private var pegs: [PlinkoPeg] = []
     private let restitution: CGFloat = 0.6 // Bounciness factor
@@ -231,28 +270,29 @@ class PlinkoViewModel: ObservableObject {
 
     private func handleBallFinished(ball: PlinkoBall, index: Int) {
         let finalX = ball.position.x
-        let multipliers = riskLevel.multipliers
+        let multipliers = riskLevel.multipliers(for: pegRows)
         let bucketWidth = 1.0 / CGFloat(multipliers.count)
-        
+
         var bucketIndex = Int(finalX / bucketWidth)
         bucketIndex = max(0, min(multipliers.count - 1, bucketIndex))
-        
+
         let multiplier = multipliers[bucketIndex]
         let bet = Double(betAmount) ?? 0
         let winnings = bet * multiplier
-        
+
         lastWin = winnings
         totalProfit += (winnings - bet)
-        
+
         sessionManager.money += Int(winnings)
         sessionManager.totalMoneyWon += Int(winnings - bet)
         sessionManager.addGameHistory(gameName: "Plinko", profit: Int(winnings - bet), betAmount: Int(bet))
         sessionManager.saveData()
-        
+
         withAnimation {
             lastHitMultiplierIndex = bucketIndex
         }
-        
+
         balls.remove(at: index)
     }
+
 }
