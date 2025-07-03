@@ -34,10 +34,12 @@ struct MainCasinoView: View {
                             .transition(.asymmetric(insertion: .opacity, removal: .opacity))
                     case .mines:
                         MinesView(session: session)
-                    case .towers: // This case is for the new Towers game
+                    case .towers:
                         TowersView(session: session)
-                    case .keno: // Add this case
+                    case .keno:
                         KenoView(session: session)
+                    case .plinko: // Add this case
+                        PlinkoView(session: session)
                     case .profile:
                         ProfileView()
                            .transition(.asymmetric(insertion: .opacity, removal: .opacity))
@@ -201,6 +203,8 @@ struct GameSection: View {
                                     session.currentScreen = .towers
                                 } else if game.name == "Keno" {
                                     session.currentScreen = .keno
+                                } else if game.name == "Plinko" {
+                                    session.currentScreen = .plinko
                                 }
                             }
                         } label: {
@@ -459,6 +463,7 @@ let originals: [Game] = [
     Game(name: "Towers", subtitle: "Climb to the top", color: .red, imageName: "towers_card_bg", icon: "building.columns.fill", isNew: false, isHot: true),
     Game(name: "Keno", subtitle: "Pick your numbers", color: .blue, imageName: "keno_card_bg", icon: "number.square.fill", isNew: false, isHot: false),
     Game(name: "Mines", subtitle: "Uncover the gems", color: .purple, imageName: "mines_card_bg", icon: "hammer.fill", isNew: true, isHot: false),
+    Game(name: "Plinko", subtitle: "Drop and win", color: .green, imageName: "plinko_card_bg", icon: "circle.dashed.inset.filled", isNew: true, isHot: true), // Add this line
     
 ]
 

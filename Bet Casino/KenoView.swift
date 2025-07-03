@@ -133,11 +133,20 @@ struct KenoView: View {
         }
         .foregroundColor(.white)
         .toolbar {
-             ToolbarItemGroup(placement: .keyboard) {
-                 Spacer()
-                 Button("Done") { isBetAmountFocused = false }.fontWeight(.bold)
-             }
-         }
+            ToolbarItemGroup(placement: .keyboard) {
+                if isBetAmountFocused {
+                    HStack {
+                        Text("Current Bet: \(viewModel.betAmount.isEmpty ? "0" : viewModel.betAmount)")
+                            .font(.system(size: 16, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Button("Done") { isBetAmountFocused = false }.fontWeight(.bold)
+                    }
+                    .padding(.horizontal)
+                }
+            }
+        }
+
         .onChange(of: viewModel.bonusText) { newValue in
              if let newBonus = newValue {
                  bonusTexts.append(newBonus)

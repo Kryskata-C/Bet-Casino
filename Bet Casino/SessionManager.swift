@@ -9,7 +9,8 @@ enum Screen {
     case mines
     case towers
     case profile
-    case keno // Add this line
+    case keno
+    case plinko // Add this line
 }
 
 class SessionManager: ObservableObject {
@@ -26,7 +27,8 @@ class SessionManager: ObservableObject {
     @Published var biggestWin: Int = 0
     @Published var minesBets: Int = 0
     @Published var towersBets: Int = 0
-    @Published var kenoBets: Int = 0 // Add this line
+    @Published var kenoBets: Int = 0
+    @Published var plinkoBets: Int = 0 // Add this line
     @Published var lastBetAmount: Int = 0
     @Published var gameHistory: [GameHistoryEntry] = []
     
@@ -34,8 +36,8 @@ class SessionManager: ObservableObject {
     @Published var towersWinStreak: Int = 0
     @Published var kenoWinStreak: Int = 0
     @Published var towersGameHistory: [Bool] = []
-    @Published var kenoConsecutiveLosses: Int = 0 // ADD THIS
-    @Published var kenoDrawHistory: [Int] = []   // ADD THIS
+    @Published var kenoConsecutiveLosses: Int = 0
+    @Published var kenoDrawHistory: [Int] = []
 
 
     // --- Level Up Animation Properties ---
@@ -64,13 +66,14 @@ class SessionManager: ObservableObject {
             self.biggestWin = userData["biggestWin"] as? Int ?? 0
             self.minesBets = userData["minesBets"] as? Int ?? 0
             self.towersBets = userData["towersBets"] as? Int ?? 0
-            self.kenoBets = userData["kenoBets"] as? Int ?? 0 // Add this line
+            self.kenoBets = userData["kenoBets"] as? Int ?? 0
+            self.plinkoBets = userData["plinkoBets"] as? Int ?? 0 // Add this line
             
             self.towersWinStreak = userData["towersWinStreak"] as? Int ?? 0
             self.kenoWinStreak = userData["kenoWinStreak"] as? Int ?? 0
             self.towersGameHistory = userData["towersGameHistory"] as? [Bool] ?? []
-            self.kenoConsecutiveLosses = userData["kenoConsecutiveLosses"] as? Int ?? 0 // ADD THIS
-            self.kenoDrawHistory = userData["kenoDrawHistory"] as? [Int] ?? []         // ADD THIS
+            self.kenoConsecutiveLosses = userData["kenoConsecutiveLosses"] as? Int ?? 0
+            self.kenoDrawHistory = userData["kenoDrawHistory"] as? [Int] ?? []
             
             if let historyData = userData["gameHistory"] as? Data {
                 let decoder = JSONDecoder()
@@ -124,6 +127,7 @@ class SessionManager: ObservableObject {
         userData["minesBets"] = self.minesBets
         userData["towersBets"] = self.towersBets
         userData["kenoBets"] = self.kenoBets
+        userData["plinkoBets"] = self.plinkoBets // Add this line
         
         userData["towersWinStreak"] = self.towersWinStreak
         userData["kenoWinStreak"] = self.kenoWinStreak
