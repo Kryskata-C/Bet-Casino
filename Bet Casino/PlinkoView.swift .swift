@@ -73,10 +73,14 @@ struct PlinkoBoardView: View {
                 }
             }
             .onAppear {
-                viewModel.boardSize = geo.size
+                DispatchQueue.main.async {
+                    viewModel.boardSize = geo.size
+                }
             }
             .onChange(of: geo.size) {
-                viewModel.boardSize = geo.size
+                DispatchQueue.main.async {
+                    viewModel.boardSize = geo.size
+                }
             }
         }
     }
@@ -141,7 +145,7 @@ struct PlinkoControlsView: View {
                         Text(level.rawValue).tag(level)
                     }
                 }
-                Stepper("Rows: \(viewModel.pegRows)", value: $viewModel.pegRows, in: 7...13, step: 2)
+                Stepper("Rows: \(viewModel.pegRows)", value: $viewModel.pegRows, in: 7...11, step: 2)
                     .padding(.horizontal)
                     .background(Color.black.opacity(0.3))
                     .cornerRadius(8)
@@ -152,7 +156,16 @@ struct PlinkoControlsView: View {
             }
 
             // Play Button
-            Button(action: viewModel.dropBall) {
+            // In PlinkoControlsView.swift
+
+            Button(action: {
+                // 1. Get the current list of multipliers
+                let multipliers = viewModel.riskLevel.multipliers(for: viewModel.pegRows)
+                // 2. Calculate the middle index
+                let middleIndex = multipliers.count / 2
+                // 3. Drop the ball at the middle index! ✨
+                viewModel.dropBall(forBucketIndex: middleIndex)
+            }) {
                 Text("Drop Ball")
                     .font(.headline).bold()
                     .padding()
@@ -161,6 +174,7 @@ struct PlinkoControlsView: View {
                     .foregroundColor(.white)
                     .cornerRadius(15)
             }
+
             .buttonStyle(PressableButtonStyle())
         }
         .padding()
