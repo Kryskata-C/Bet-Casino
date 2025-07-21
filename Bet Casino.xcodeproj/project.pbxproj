@@ -16,6 +16,7 @@
 		E07F51DE2E088A810094E3FE /* Keno Miss.wav in Resources */ = {isa = PBXBuildFile; fileRef = E07F51DD2E088A810094E3FE /* Keno Miss.wav */; };
 		E07F51E02E088BC70094E3FE /* Keno Diamond 2.wav in Resources */ = {isa = PBXBuildFile; fileRef = E07F51DF2E088BC70094E3FE /* Keno Diamond 2.wav */; };
 		E085B2B02E0700730081DA1A /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E085B2AF2E0700730081DA1A /* AVFoundation.framework */; };
+		E09974442E2EE6E4003EC4C6 /* PassKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E09974432E2EE6E4003EC4C6 /* PassKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -45,6 +46,7 @@
 		E07F51DD2E088A810094E3FE /* Keno Miss.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "Keno Miss.wav"; sourceTree = "<group>"; };
 		E07F51DF2E088BC70094E3FE /* Keno Diamond 2.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "Keno Diamond 2.wav"; sourceTree = "<group>"; };
 		E085B2AF2E0700730081DA1A /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		E09974432E2EE6E4003EC4C6 /* PassKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PassKit.framework; path = System/Library/Frameworks/PassKit.framework; sourceTree = SDKROOT; };
 		E0D5C5DE2E04AF9500B3FE45 /* Bet Casino.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Bet Casino.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0D5C5EB2E04AF9500B3FE45 /* Bet CasinoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Bet CasinoTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0D5C5F52E04AF9500B3FE45 /* Bet CasinoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Bet CasinoUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -86,6 +88,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E09974442E2EE6E4003EC4C6 /* PassKit.framework in Frameworks */,
 				E085B2B02E0700730081DA1A /* AVFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -117,6 +120,7 @@
 		E085B2AE2E0700730081DA1A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				E09974432E2EE6E4003EC4C6 /* PassKit.framework */,
 				E06CBE222E0761E700DFED0C /* Mines Cashout.wav */,
 				E06CBE232E0761E700DFED0C /* Mines Start.wav */,
 				E06CBE242E0761E700DFED0C /* Mines Tile Flipped.wav */,

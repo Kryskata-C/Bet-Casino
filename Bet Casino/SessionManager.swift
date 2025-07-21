@@ -11,7 +11,8 @@ enum Screen {
     case profile
     case keno
     case plinko
-    case hilo // ✅ FIXED: Hilo screen is now officially part of the app
+    case hilo
+    case shop
 }
 
 class SessionManager: ObservableObject {

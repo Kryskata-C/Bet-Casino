@@ -43,8 +43,11 @@ struct MainCasinoView: View {
                         HiloView(session: session)
                     case .profile:
                         ProfileView()
-                           .transition(.asymmetric(insertion: .opacity, removal: .opacity))
+                            .transition(.asymmetric(insertion: .opacity, removal: .opacity))
+                    case .shop:
+                        ShopView()
                     }
+                    
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -323,7 +326,10 @@ struct BottomNavBar: View {
                 withAnimation { currentScreen = .home }
             }
             NavItem(title: "My Bets", icon: "clock.arrow.circlepath", isSelected: false) { /* Action */ }
-            NavItem(title: "Shop", icon: "bag.fill", isSelected: false) { /* Action */ }
+            NavItem(title: "Shop", icon: "bag.fill", isSelected: currentScreen == .shop)
+            {
+                withAnimation {currentScreen = .shop }
+            }
         }
         .padding()
         .cornerRadius(25)
