@@ -44,7 +44,14 @@ struct PlinkoView: View {
 
                 // Game controls
                 PlinkoControlsView(viewModel: viewModel, isBetAmountFocused: $isBetAmountFocused)
-                    .padding(.bottom) // Ensures controls are lifted above the tab bar
+                    
+                Text("⚠️ Game is currently overpowered and not balanced for fair play.")
+                    .font(.caption.bold())
+                    .foregroundColor(.yellow)
+                    .padding(8)
+                    .background(Color.black.opacity(0.6))
+                    .cornerRadius(12)
+// Ensures controls are lifted above the tab bar
             }
         }
         .foregroundColor(.white)
