@@ -10,7 +10,8 @@ enum Screen {
     case towers
     case profile
     case keno
-    case plinko // Add this line
+    case plinko
+    case hilo // ✅ FIXED: Hilo screen is now officially part of the app
 }
 
 class SessionManager: ObservableObject {
@@ -28,7 +29,8 @@ class SessionManager: ObservableObject {
     @Published var minesBets: Int = 0
     @Published var towersBets: Int = 0
     @Published var kenoBets: Int = 0
-    @Published var plinkoBets: Int = 0 // Add this line
+    @Published var plinkoBets: Int = 0
+    @Published var hiloBets: Int = 0 // ✅ FIXED: Added property to track Hilo bets
     @Published var lastBetAmount: Int = 0
     @Published var gameHistory: [GameHistoryEntry] = []
     
@@ -67,7 +69,8 @@ class SessionManager: ObservableObject {
             self.minesBets = userData["minesBets"] as? Int ?? 0
             self.towersBets = userData["towersBets"] as? Int ?? 0
             self.kenoBets = userData["kenoBets"] as? Int ?? 0
-            self.plinkoBets = userData["plinkoBets"] as? Int ?? 0 // Add this line
+            self.plinkoBets = userData["plinkoBets"] as? Int ?? 0
+            self.hiloBets = userData["hiloBets"] as? Int ?? 0 // ✅ FIXED: Loading Hilo bets
             
             self.towersWinStreak = userData["towersWinStreak"] as? Int ?? 0
             self.kenoWinStreak = userData["kenoWinStreak"] as? Int ?? 0
@@ -90,6 +93,7 @@ class SessionManager: ObservableObject {
        
         UserDefaults.standard.set(identifier, forKey: lastUserIdentifierKey)
     }
+    
     var xpProgress: Double {
         let currentLevelXP = xpForLevel(level)
         let nextLevelXP = xpForLevel(level + 1)
@@ -102,10 +106,8 @@ class SessionManager: ObservableObject {
         return Double(xpInCurrentLevel) / Double(xpForNextLevel)
     }
 
-    // Also add this helper function inside the SessionManager class
     func xpForLevel(_ level: Int) -> Int {
         guard level > 0 else { return 0 }
-        // This is the reverse of your calculateLevel formula
         let xpBase = pow(10, Double(level) / 20.0) - 1
         return Int(xpBase * 500_000.0)
     }
@@ -127,7 +129,8 @@ class SessionManager: ObservableObject {
         userData["minesBets"] = self.minesBets
         userData["towersBets"] = self.towersBets
         userData["kenoBets"] = self.kenoBets
-        userData["plinkoBets"] = self.plinkoBets // Add this line
+        userData["plinkoBets"] = self.plinkoBets
+        userData["hiloBets"] = self.hiloBets // ✅ FIXED: Saving Hilo bets
         
         userData["towersWinStreak"] = self.towersWinStreak
         userData["kenoWinStreak"] = self.kenoWinStreak
@@ -141,13 +144,10 @@ class SessionManager: ObservableObject {
         UserDefaults.standard.set(userData, forKey: identifier)
         print("User data saved for identifier: \(identifier)")
     }
+    
     func addGameHistory(gameName: String, profit: Int, betAmount: Int) {
         let newEntry = GameHistoryEntry(id: UUID(), gameName: gameName, profit: profit, betAmount: betAmount, timestamp: Date())
-
-        // Insert the new entry at the beginning
         self.gameHistory.insert(newEntry, at: 0)
-
-        // Keep the history list to a maximum of 20 entries
         if self.gameHistory.count > 20 {
             self.gameHistory.removeLast()
         }
@@ -157,7 +157,6 @@ class SessionManager: ObservableObject {
         self.isLoggedIn = false
         self.currentScreen = .home
         self.currentUserIdentifier = nil
-        
         UserDefaults.standard.removeObject(forKey: lastUserIdentifierKey)
     }
     
@@ -167,7 +166,6 @@ class SessionManager: ObservableObject {
         
         if calculatedLevel > oldLevel {
             self.level = calculatedLevel
-            
             if !isInitialLoad {
                 self.newLevel = calculatedLevel
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -181,10 +179,8 @@ class SessionManager: ObservableObject {
     
     private func calculateLevel(totalMoneyWon: Double) -> Int {
         guard totalMoneyWon > 0 else { return 0 }
-        
         let baseXP = totalMoneyWon / 500_000.0
         let level = log10(baseXP + 1) * 20.0
-        
         return min(100, Int(level.rounded()))
     }
 }

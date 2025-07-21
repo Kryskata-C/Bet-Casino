@@ -302,7 +302,6 @@ private struct KenoControlsView: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            // --- MODIFIED: Active Boost Indicator for multiple boosts ---
             if !viewModel.activeBoosts.isEmpty {
                 let boostNames = viewModel.activeBoosts.map { $0.name }.joined(separator: ", ")
                 Text("Active Boosts: \(boostNames)")
@@ -321,7 +320,6 @@ private struct KenoControlsView: View {
                         .focused($isBetAmountFocused)
                 }
                 
-                // --- MODIFIED: Boosts Button with active count ---
                 Button { showBoosts = true } label: {
                     ZStack(alignment: .topTrailing) {
                         VStack {
@@ -358,7 +356,6 @@ private struct KenoControlsView: View {
         .padding(.horizontal).padding(.bottom, 5)
     }
 }
-// --- MODIFIED: Boosts Sheet to support multi-selection ---
 struct BoostsSheetView: View {
     @ObservedObject var viewModel: KenoViewModel
     @Environment(\.dismiss) var dismiss

@@ -1,8 +1,7 @@
+// Bet Casino/ContentView.swift
+
 import UIKit
 import SwiftUI
-
-// The duplicate 'Screen' enum has been REMOVED from this file.
-// It should only be defined in SessionManager.swift
 
 struct ContentView: View {
     @EnvironmentObject var session: SessionManager
@@ -20,7 +19,6 @@ struct MainCasinoView: View {
 
     var body: some View {
         ZStack {
-            // A more dynamic background
             RadialGradient(gradient: Gradient(colors: [Color(red: 35/255, green: 0, blue: 70/255), .black]), center: .top, startRadius: 5, endRadius: 800)
                 .ignoresSafeArea()
 
@@ -28,6 +26,7 @@ struct MainCasinoView: View {
                 TopUserBar(username: $session.username, money: $session.money, gems: $session.gems, level: $session.level)
 
                 ZStack {
+                    // ✅ FIXED: Added the missing .hilo case to make the switch exhaustive
                     switch session.currentScreen {
                     case .home:
                         HomeView()
@@ -38,8 +37,10 @@ struct MainCasinoView: View {
                         TowersView(session: session)
                     case .keno:
                         KenoView(session: session)
-                    case .plinko: // Add this case
+                    case .plinko:
                         PlinkoView(session: session)
+                    case .hilo:
+                        HiloView(session: session)
                     case .profile:
                         ProfileView()
                            .transition(.asymmetric(insertion: .opacity, removal: .opacity))
@@ -50,7 +51,6 @@ struct MainCasinoView: View {
                 BottomNavBar(currentScreen: $session.currentScreen)
             }
             
-            // --- UNIVERSAL LEVEL UP ANIMATION OVERLAY ---
             if session.showLevelUpAnimation {
                 LevelUpAnimationView()
                     .environmentObject(session)
@@ -82,7 +82,6 @@ struct HomeView: View {
         case "Popular":
             return allGames.filter { $0.isHot }
         case "Originals":
-            // Assuming 'originals' is the source array for this category
             return originals.filter {
                 searchText.isEmpty ? true : $0.name.localizedCaseInsensitiveContains(searchText)
             }
@@ -94,10 +93,7 @@ struct HomeView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
-                // Header remains the same
                 VStack(spacing: 18) {
-                    
-
                     SearchBar(text: $searchText)
                 }
                 .padding(.top, 10)
@@ -105,10 +101,8 @@ struct HomeView: View {
 
                 EliteBanner()
                 
-                // Add the category chooser here
                 CategoryFilterChips(categories: categories, selection: $selectedCategory)
 
-                // Replace the VStack of GameSections with a single section
                 if !filteredGames.isEmpty {
                     GameSection(title: selectedCategory, games: filteredGames)
                 } else {
@@ -178,7 +172,6 @@ struct GameSection: View {
     let games: [Game]
     @EnvironmentObject var session: SessionManager
     
-    // --- NEW: A state variable to track the currently visible card ---
     @State private var currentIndex: Int = 0
 
     var body: some View {
@@ -189,35 +182,28 @@ struct GameSection: View {
                 .padding(.horizontal)
                 .foregroundStyle(LinearGradient(colors: [.white, .purple], startPoint: .leading, endPoint: .trailing))
 
-            // --- EDIT: The TabView is now wrapped in a VStack with the indicator ---
             VStack {
-                // The TabView now updates the currentIndex when you swipe
                 TabView(selection: $currentIndex) {
                     ForEach(games.indices, id: \.self) { index in
                         let game = games[index]
                         Button {
                             withAnimation {
-                                if game.name == "Mines" {
-                                    session.currentScreen = .mines
-                                } else if game.name == "Towers" {
-                                    session.currentScreen = .towers
-                                } else if game.name == "Keno" {
-                                    session.currentScreen = .keno
-                                } else if game.name == "Plinko" {
-                                    session.currentScreen = .plinko
-                                }
+                                if game.name == "Mines" { session.currentScreen = .mines }
+                                else if game.name == "Towers" { session.currentScreen = .towers }
+                                else if game.name == "Keno" { session.currentScreen = .keno }
+                                else if game.name == "Plinko" { session.currentScreen = .plinko }
+                                else if game.name == "Hilo" { session.currentScreen = .hilo }
                             }
                         } label: {
                             GameCard(game: game)
                         }
                         .padding(.horizontal)
-                        .tag(index) // Tag each view with its index
+                        .tag(index)
                     }
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 .frame(height: 320)
                 
-                // --- NEW: This is the scroll indicator ---
                 HStack(spacing: 8) {
                     ForEach(games.indices, id: \.self) { index in
                         Circle()
@@ -227,7 +213,7 @@ struct GameSection: View {
                             .animation(.spring(), value: currentIndex)
                     }
                 }
-                .padding(.top, 8) // Add some space above the dots
+                .padding(.top, 8)
             }
         }
     }
@@ -238,13 +224,10 @@ struct GameCard: View {
     @State private var hasAppeared = false
 
     var body: some View {
-        // The ZStack now only contains the overlay content.
         ZStack(alignment: .bottomLeading) {
-            // Gradient for text readability
             LinearGradient(colors: [.black.opacity(0.0), .black.opacity(0.8)], startPoint: .center, endPoint: .bottom)
-                .zIndex(1) // Ensure gradient is on top of the background
+                .zIndex(1)
 
-            // Text content
             VStack(alignment: .leading, spacing: 6) {
                 Spacer()
                 Image(systemName: game.icon)
@@ -261,22 +244,20 @@ struct GameCard: View {
                     .foregroundColor(.white.opacity(0.8))
             }
             .padding(20)
-            .zIndex(2) // Ensure text is on top of the gradient
+            .zIndex(2)
         }
-        // The background is now applied here, outside the main content ZStack.
-        // This is the key to fixing the scaling issue.
         .background(
             ZStack {
                 if UIImage(named: game.imageName) != nil {
                     Image(game.imageName)
                         .resizable()
-                        .aspectRatio(contentMode: .fill) // The image fills the background space
+                        .aspectRatio(contentMode: .fill)
                 } else {
                     LinearGradient(colors: [game.color.opacity(0.8), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
                 }
             }
         )
-        .clipShape(RoundedRectangle(cornerRadius: 20)) // Clip the background to the card shape
+        .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.4), radius: 8, y: 5)
         .scaleEffect(hasAppeared ? 1 : 0.95)
         .opacity(hasAppeared ? 1 : 0)
@@ -347,7 +328,7 @@ struct BottomNavBar: View {
         .padding()
         .cornerRadius(25)
         .padding(.horizontal)
-        .padding(.bottom, 5) // Move it up slightly from the very bottom
+        .padding(.bottom, 5)
     }
 }
 
@@ -449,7 +430,6 @@ struct Game: Identifiable {
     let color: Color
     let imageName: String
     let icon: String
-    // Add these two properties
     var isNew: Bool = false
     var isHot: Bool = false
 }
@@ -463,8 +443,8 @@ let originals: [Game] = [
     Game(name: "Towers", subtitle: "Climb to the top", color: .red, imageName: "towers_card_bg", icon: "building.columns.fill", isNew: false, isHot: true),
     Game(name: "Keno", subtitle: "Pick your numbers", color: .blue, imageName: "keno_card_bg", icon: "number.square.fill", isNew: false, isHot: false),
     Game(name: "Mines", subtitle: "Uncover the gems", color: .purple, imageName: "mines_card_bg", icon: "hammer.fill", isNew: true, isHot: false),
-    Game(name: "Plinko", subtitle: "Drop and win", color: .green, imageName: "plinko_card_bg", icon: "circle.dashed.inset.filled", isNew: true, isHot: true), // Add this line
-    
+    Game(name: "Plinko", subtitle: "Drop and win", color: .green, imageName: "plinko_card_bg", icon: "circle.dashed.inset.filled", isNew: true, isHot: true),
+    Game(name: "Hilo", subtitle: "Higher or Lower?", color: .green, imageName: "hilo_card_bg", icon: "arrow.up.arrow.down.circle.fill", isNew: true, isHot: true),
 ]
 
 

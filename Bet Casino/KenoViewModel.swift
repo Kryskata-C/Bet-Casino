@@ -9,7 +9,6 @@ struct KenoBonusTextItem: Identifiable, Equatable {
     let color: Color
 }
 
-// --- MODIFIED: A completely new set of creative and meaningful boosts ---
 enum KenoBoost: CaseIterable {
     case highRoller, secondChance, gemJackpot
     
@@ -65,7 +64,6 @@ class KenoViewModel: ObservableObject {
     @Published var jackpotNumber: Int? = nil
     @Published var bonusText: KenoBonusTextItem? = nil
     
-    // --- Properties for new features ---
     @Published var activeBoosts: Set<KenoBoost> = []
     @Published var isMercyModeActive: Bool = false
     @Published var hotNumbers: Set<Int> = []
@@ -160,12 +158,11 @@ class KenoViewModel: ObservableObject {
         
         var baseMultiplier = payoutTable[spotsPicked]?[spotsHit] ?? 0.0
 
-        // --- NEW: Apply "High Roller" boost effect ---
         if activeBoosts.contains(.highRoller) {
             if spotsHit < 3 {
-                baseMultiplier = 0 // No win for small hits
+                baseMultiplier = 0
             } else if spotsHit >= 5 {
-                baseMultiplier *= 1.5 // Big bonus for large hits
+                baseMultiplier *= 1.5
                 bonusText = KenoBonusTextItem(text: "High Roller Bonus!", color: .yellow)
             }
         }
@@ -176,9 +173,8 @@ class KenoViewModel: ObservableObject {
         
         currentMultiplier = baseMultiplier * riskBonus * streakBonus * luckyBonus
         
-        // --- NEW: Apply "Second Chance" boost BEFORE calculating profit ---
         if activeBoosts.contains(.secondChance) && currentMultiplier == 0 {
-            currentMultiplier = 1.0 // Return the bet
+            currentMultiplier = 1.0
             bonusText = KenoBonusTextItem(text: "Second Chance!", color: .green)
         }
 
@@ -200,7 +196,6 @@ class KenoViewModel: ObservableObject {
             }
         }
         
-        // --- NEW: Apply "Gem Jackpot" boost ---
         if activeBoosts.contains(.gemJackpot) && !hits.isEmpty {
             let gemsWon = hits.count
             sessionManager.gems += gemsWon
@@ -292,7 +287,7 @@ class KenoViewModel: ObservableObject {
 
     private func generateLuckyNumbers() {
         luckyNumbers.removeAll()
-        let luckyNumberCount = 2 // Keeping the base at 2
+        let luckyNumberCount = 2
         while luckyNumbers.count < luckyNumberCount { luckyNumbers.insert(Int.random(in: 1...25)) }
         for i in gridNumbers.indices {
             gridNumbers[i].isLucky = luckyNumbers.contains(gridNumbers[i].number)

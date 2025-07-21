@@ -3,7 +3,7 @@
 import SwiftUI
 import Combine
 
-// MARK: - Card Model
+// MARK: - Models
 struct Card: Identifiable, Equatable {
     let id = UUID()
     let suit: Suit
@@ -36,6 +36,14 @@ struct Card: Identifiable, Equatable {
     }
 }
 
+// ✅ NEW: Model for the visual guess history bar
+struct HiloHistoryItem: Identifiable, Equatable {
+    let id = UUID()
+    let card: Card
+    let guess: HiloViewModel.Guess
+}
+
+
 // MARK: - ViewModel
 class HiloViewModel: ObservableObject {
     // MARK: - Game State
@@ -44,6 +52,9 @@ class HiloViewModel: ObservableObject {
     @Published var currentCard: Card?
     @Published var revealedCard: Card?
     @Published var betAmount: String = "1000"
+    
+    // ✅ NEW: Published property for guess history
+    @Published var guessHistory: [HiloHistoryItem] = []
 
     // MARK: - Calculation & Chances
     @Published var higherChance: Double = 0.0
@@ -85,10 +96,8 @@ class HiloViewModel: ObservableObject {
     func makeGuess(_ guess: Guess) {
         guard gameState == .playing, let current = currentCard, let nextDrawnCard = deck.popLast() else { return }
 
-        // We are now in the process of revealing the card
         gameState = .revealing
         
-        // Set the revealed card and trigger the animation
         self.revealedCard = nextDrawnCard
         withAnimation { self.flipCard = true }
         
@@ -97,25 +106,30 @@ class HiloViewModel: ObservableObject {
         else if nextDrawnCard.rank < current.rank { outcome = (guess == .lower) ? .win : .loss }
         else { outcome = .tie }
         
-        // Show the win/loss indicator after the flip starts
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             self.lastOutcome = outcome
         }
 
         if outcome == .win {
+            let historyItem = HiloHistoryItem(card: current, guess: guess)
+            withAnimation {
+                guessHistory.append(historyItem)
+                if guessHistory.count > 7 { // Keep the visual history to a max of 7 cards
+                    guessHistory.removeFirst()
+                }
+            }
+            
             let successChance = (guess == .higher ? higherChance : lowerChance) / 100.0
             let multiplierIncrease = successChance > 0 ? (1.0 / successChance) * 0.97 : 2.0
             currentMultiplier *= multiplierIncrease
             profit = (Double(betAmount) ?? 0) * (currentMultiplier - 1.0)
             
-            // After the player sees the result, prepare for the next turn
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
                 self.prepareForNextCard(with: nextDrawnCard)
             }
         } else {
             profit = -(Double(betAmount) ?? 0.0)
             
-            // On loss, reset the entire game after showing the result
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
                 self.startNewGame()
             }
@@ -124,12 +138,14 @@ class HiloViewModel: ObservableObject {
     
     func skipCard() {
         guard gameState == .playing, deck.count > 1 else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
         currentCard = deck.popLast()
         calculateChances()
     }
     
     func cashout() {
         guard gameState == .playing, profit > 0 else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
         
         let winnings = (Double(betAmount) ?? 0.0) * currentMultiplier
         sessionManager.money += Int(winnings.rounded())
@@ -151,18 +167,17 @@ class HiloViewModel: ObservableObject {
         lastOutcome = nil
         flipCard = false
         gameState = .betting
+        guessHistory.removeAll()
         calculateChances()
     }
     
     private func prepareForNextCard(with newCard: Card) {
         lastOutcome = nil
         currentCard = newCard
-        revealedCard = nil // Important for the back of the card to render correctly
+        revealedCard = nil
         
-        // Flip back to the card back
         withAnimation { self.flipCard = false }
         
-        // Wait for the flip-back animation to finish before allowing the next guess
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             self.gameState = .playing
             self.calculateChances()
@@ -187,4 +202,4 @@ class HiloViewModel: ObservableObject {
         higherChance = (Double(higherCount) / Double(remainingCount)) * 100
         lowerChance = (Double(lowerCount) / Double(remainingCount)) * 100
     }
-}   
+}
