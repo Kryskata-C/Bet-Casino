@@ -20,9 +20,9 @@ struct HiloView: View {
                 HiloHeaderView(multiplier: viewModel.currentMultiplier, profit: viewModel.profit)
                 Spacer()
 
+                // ✅ THIS IS THE CORE FIX AREA
                 HiloCardArea(
                     currentCard: viewModel.currentCard,
-                    // ✅ FIX: Pass the new `revealedCard` property to the view
                     revealedCard: viewModel.revealedCard,
                     isFlipped: $viewModel.flipCard
                 )
@@ -33,7 +33,7 @@ struct HiloView: View {
                 if viewModel.gameState == .playing {
                     HiloGameplayView(viewModel: viewModel)
                         .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .opacity))
-                } else {
+                } else if viewModel.gameState == .betting {
                     HiloBettingView(viewModel: viewModel, isBetAmountFocused: $isBetAmountFocused)
                         .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .opacity))
                 }
@@ -67,7 +67,6 @@ struct HiloHeaderView: View {
 
 struct HiloCardArea: View {
     let currentCard: Card?
-    // ✅ FIX: Receive the new `revealedCard` property
     let revealedCard: Card?
     @Binding var isFlipped: Bool
 
@@ -77,11 +76,14 @@ struct HiloCardArea: View {
                 PremiumCardView(card: card).transition(.scale)
             }
 
+            // ✅ THE FIX: The `front` of the FlippableView should be the card back (nil),
+            // and the `back` (what's shown after flipping) should be the `revealedCard`.
             FlippableView(isFlipped: $isFlipped) {
-                // ✅ FIX: The front of the card is now based on `revealedCard`
-                PremiumCardView(card: revealedCard)
-            } back: {
+                // Front (Initially visible)
                 PremiumCardView(card: nil)
+            } back: {
+                // Back (Visible after flip)
+                PremiumCardView(card: revealedCard)
             }
         }
     }
@@ -221,15 +223,23 @@ struct FlippableView<Front: View, Back: View>: View {
     @Binding var isFlipped: Bool
     let front: Front, back: Back
     
-    init(isFlipped: Binding<Bool>, @ViewBuilder front: () -> Front, @ViewBuilder back: () -> Back = { EmptyView() }) {
-        self._isFlipped = isFlipped; self.front = front(); self.back = back()
+    init(isFlipped: Binding<Bool>, @ViewBuilder front: () -> Front, @ViewBuilder back: () -> Back) {
+        self._isFlipped = isFlipped
+        self.front = front()
+        self.back = back()
     }
     
     var body: some View {
         ZStack {
-            front.rotation3DEffect(.degrees(isFlipped ? 180 : 0), axis: (x: 0, y: 1, z: 0)).opacity(isFlipped ? 0 : 1)
-            back.rotation3DEffect(.degrees(isFlipped ? 0 : -180), axis: (x: 0, y: 1, z: 0)).opacity(isFlipped ? 1 : 0)
-        }.animation(.spring(response: 0.5, dampingFraction: 0.7), value: isFlipped)
+            // This now shows the BACK when isFlipped is true
+            back.rotation3DEffect(.degrees(isFlipped ? 0 : -180), axis: (x: 0, y: 1, z: 0))
+                .opacity(isFlipped ? 1 : 0)
+            
+            // This now shows the FRONT when isFlipped is false
+            front.rotation3DEffect(.degrees(isFlipped ? 180 : 0), axis: (x: 0, y: 1, z: 0))
+                .opacity(isFlipped ? 0 : 1)
+        }
+        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isFlipped)
     }
 }
 
