@@ -221,7 +221,6 @@ struct StatsTabView: View {
                 StatCardView(icon: "building.columns.fill", title: "Towers Bets", value: session.towersBets, color: .red)
                 StatCardView(icon: "number.square.fill", title: "Keno Bets", value: session.kenoBets, color: .blue)
                 StatCardView(icon: "circle.dashed.inset.filled", title: "Plinko Bets", value: session.plinkoBets, color: .green) // Add this line
-                StatCardView(icon: "star.fill", title: "Gems", value: session.gems, color: .purple)
             }
             .padding()
         }
