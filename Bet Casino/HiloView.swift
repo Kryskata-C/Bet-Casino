@@ -43,13 +43,19 @@ struct HiloView: View {
                 Spacer()
 
                 // Bottom control panel, contained and clean
-                if viewModel.gameState == .playing || viewModel.gameState == .revealing {
-                    HiloGameplayView(viewModel: viewModel)
-                } else if viewModel.gameState == .betting {
-                    HiloBettingView(viewModel: viewModel, isBetAmountFocused: $isBetAmountFocused)
+                Group {
+                    if viewModel.gameState == .playing || viewModel.gameState == .revealing {
+                        HiloGameplayView(viewModel: viewModel)
+                            .transition(.opacity.combined(with: .scale))
+                    } else if viewModel.gameState == .betting {
+                        HiloBettingView(viewModel: viewModel, isBetAmountFocused: $isBetAmountFocused)
+                            .transition(.opacity.combined(with: .scale))
+                    }
                 }
+
             }
             .padding(.horizontal)
+            .animation(.easeInOut(duration: 0.4), value: viewModel.gameState)
         }
         .foregroundColor(.white)
     }
